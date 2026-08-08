@@ -4,22 +4,21 @@ This repository is a small Qiskit implementation of quantum NAND-tree evaluation
 
 The built-in profiles cover **2, 4, and 8 leaves**. They are calibrated finite examples, not a scalable implementation of the asymptotic algorithm.
 
-## What I am testing
+## Project status
 
-The main checks are:
+This project is currently a **prototype**.
 
-- the bit oracle returns the expected input bit for a leaf address;
-- querying and unquerying leaves the work register clean;
-- the explicit query circuit matches the corresponding split-Hamiltonian evolution on small cases;
-- each walk step uses the expected number of oracle calls;
-- transmission separates root values 0 and 1 for the built-in profiles; and
-- the calibrated parameters classify every supported input in the finite reference model.
+The small supported tree sizes are useful for checking the mechanics of the algorithm: the input oracle, query/unquery behavior, Hamiltonian evolution, transmission probabilities, and query counts.
 
-The detailed calibration results are recorded in [EXPERIMENTS.md](EXPERIMENTS.md).
+The main limitation is scalability. Several parts of the walk are represented using finite Hamiltonian matrices and compiled into Qiskit circuits. That makes the implementation easy to compare against exact linear algebra, but it becomes expensive quickly as the tree grows.
+
+The theoretical complexity results from the NAND-tree papers should therefore not be attributed directly to this implementation.
 
 ## NAND tree and walk graph
 
-For a balanced NAND tree, the leaves contain the input bits and the internal vertices are NAND gates. For four leaves:
+A balanced NAND tree stores input bits at its leaves and applies NAND gates at the internal vertices.
+
+For four leaves:
 
 ```text
                  NAND
@@ -29,150 +28,193 @@ For a balanced NAND tree, the leaves contain the input bits and the internal ver
            x0  x1    x2  x3
 ```
 
-Instead of evaluating those gates from the leaves upward, the quantum-walk construction turns the formula into part of a graph. A path called the **runway** is attached to the root, and the input bits control extra edges attached to the leaves.
+Each internal node computes:
 
-The graph therefore has three kinds of vertices:
+```text
+NAND(a, b) = 1 - (a AND b)
+```
 
-- runway vertices, which carry the incoming and outgoing wave packet;
-- tree vertices, which encode the NAND formula structure; and
-- oracle vertices, one for each input leaf.
+A classical implementation can evaluate the tree from the leaves upward.
 
-For input bit \(x_k\), the edge between leaf \(k\) and its oracle vertex is present when \(x_k=1\) and absent when \(x_k=0\). This is the input-dependent part of the walk.
+The quantum algorithm takes a different approach. It turns the tree into part of a graph and studies a quantum walk on that graph.
+
+A path called the **runway** is attached to the root. The input bits control extra edges attached to the leaves.
+
+The resulting graph contains:
+
+- runway vertices for the incoming and outgoing packet;
+- tree vertices containing the NAND-tree structure;
+- one oracle vertex for each input leaf.
+
+For input bit `x_k`, the edge between leaf `k` and its oracle vertex is present when `x_k = 1` and absent when `x_k = 0`.
+
+That input-dependent edge is how the Boolean input enters the walk.
 
 ### Hamiltonian
 
-Let \(A\) be the graph adjacency matrix. The finite walk Hamiltonian is
+Let `A` be the graph adjacency matrix.
 
-$$
-H=-A.
-$$
+The finite walk Hamiltonian is:
 
-I split it into
+```text
+H = -A
+```
 
-$$
-H=H_D+H_O,
-$$
+It is useful to split it into two parts:
 
-where \(H_D\) contains the fixed runway/tree edges and \(H_O\) contains the input-dependent leaf/oracle edges.
+```text
+H = H_D + H_O
+```
 
-The reference implementation evolves an initial state according to
+where:
 
-$$
-|\psi(t)\rangle=e^{-iHt}|\psi(0)\rangle.
-$$
+```text
+H_D = fixed runway and tree edges
+H_O = input-dependent leaf/oracle edges
+```
 
-The code for the finite graph is in `non_qiskit/graph.py`, while `non_qiskit/exact_walk.py` performs the direct continuous-time evolution.
+The state evolves according to:
+
+```text
+|psi(t)> = exp(-i H t) |psi(0)>
+```
+
+The finite graph construction is implemented in:
+
+```text
+non_qiskit/graph.py
+```
+
+and the direct continuous-time reference evolution is in:
+
+```text
+non_qiskit/exact_walk.py
+```
 
 ### Initial packet
 
-The initial state is supported on the left side of the runway rather than on the NAND tree itself. The finite implementation uses the same right-moving phase pattern that motivates the theoretical construction:
+The initial state is placed on the left side of the runway.
 
-$$
-\langle r|\psi(0)\rangle=
-\begin{cases}
-L^{-1/2}e^{ir\pi/2}, & -L+1\le r\le 0,\\
-0, & \text{otherwise}.
-\end{cases}
-$$
-
-The phase matters because the packet is meant to move toward the root instead of behaving like a static probability distribution.
-
-### Why transmission is useful
-
-After the packet reaches the root region, the tree changes its scattering behavior depending on the NAND value. For the small finite instances here, I separate the final probability into:
-
-- reflection: probability on the non-positive side of the runway;
-- transmission: probability on the positive side of the runway; and
-- tree probability: probability still inside the tree/oracle part of the graph.
-
-The implementation uses transmission probability as its decision statistic.
-
-For a calibrated profile,
+For a packet of length `L`, the amplitudes follow the right-moving phase pattern:
 
 ```text
-transmission < threshold  -> predicted root 0
-transmission >= threshold -> predicted root 1
+<r|psi(0)> = L^(-1/2) exp(i r pi / 2)
 ```
 
-The threshold is not assumed to be universally \(0.5\). It is calibrated separately for each supported tree size.
+for the selected runway positions, and zero elsewhere.
 
-## From Hamiltonian evolution to a query circuit
+The phase pattern matters because the packet is intended to move toward the root rather than behave like a stationary probability distribution.
 
-Directly calculating
+### Transmission
 
-$$
-e^{-i(H_D+H_O)t}
-$$
+After the packet interacts with the tree, the final probability is divided into several regions:
+
+```text
+reflection   = probability on the non-positive runway
+transmission = probability on the positive runway
+tree         = probability remaining in the tree/oracle region
+```
+
+The finite implementation uses transmission probability as its decision statistic.
+
+For a calibrated tree size:
+
+```text
+transmission < threshold   -> predicted root 0
+transmission >= threshold  -> predicted root 1
+```
+
+The threshold is not always `0.5`. It is calibrated independently for each supported tree size.
+
+## Query circuit
+
+Directly simulating:
+
+```text
+exp(-i (H_D + H_O) t)
+```
 
 is useful as a reference, but it does not expose how many times the unknown input is queried.
 
-The Qiskit query implementation instead separates the driver and oracle Hamiltonians with a symmetric product formula. For
+The query implementation separates driver evolution and oracle evolution using a symmetric product formula.
 
-$$
-\Delta t=\frac{t}{r},
-$$
+For:
 
-the implemented approximation is
+```text
+dt = t / r
+```
 
-$$
-e^{-i(H_D+H_O)t}
-\approx
-\left(
-e^{-iH_D\Delta t/2}
-e^{-iH_O\Delta t}
-e^{-iH_D\Delta t/2}
-\right)^r.
-$$
+the implemented approximation is:
 
-Here \(r\) is the number of query-walk steps. The query implementation is compared against this split-Hamiltonian reference on small inputs.
+```text
+exp(-i (H_D + H_O) t)
+
+approximately equals
+
+[
+    exp(-i H_D dt / 2)
+    exp(-i H_O dt)
+    exp(-i H_D dt / 2)
+]^r
+```
+
+Here `r` is the number of query-walk steps.
+
+The explicit query circuit is compared against this split-Hamiltonian reference on small instances.
 
 ## Input oracle
 
-The circuit uses the standard bit-query oracle
+The implementation uses the standard bit-query oracle:
 
-$$
-U_O|k,a\rangle=|k,a\oplus x_k\rangle.
-$$
+```text
+U_O |k, a> = |k, a XOR x_k>
+```
 
-The address register \(k\) selects an input leaf and \(a\) is a work qubit.
+The address register `k` selects an input leaf and `a` is a work qubit.
 
-The walk position register does not directly store a leaf number, so the oracle-evolution block first derives the relevant leaf index from the current graph vertex. It then queries \(x_k\), uses that bit to control the leaf-edge evolution, and erases the temporary information afterward.
+The walk position register does not directly contain the leaf address, so each oracle-evolution block first derives the appropriate leaf index from the current graph position.
 
-One oracle-evolution block is therefore:
+One block performs:
 
 1. compute the temporary leaf address;
-2. query \(x_k\) into the work qubit;
+2. query `x_k` into the work qubit;
 3. apply the leaf-edge evolution controlled by that work qubit;
-4. query \(x_k\) again; and
+4. query `x_k` again;
 5. uncompute the temporary leaf address.
 
-The second oracle call is not an extra lookup for another input. It is **uncomputation**.
+The second query clears the work qubit.
 
-Because
+Because the oracle is its own inverse:
 
-$$
-U_O^2=I,
-$$
+```text
+U_O * U_O = I
+```
 
-the second call maps
+the second call performs:
 
-$$
-|k,x_k\rangle\longrightarrow|k,0\rangle,
-$$
+```text
+|k, x_k> -> |k, 0>
+```
 
-returning the work qubit to its clean state.
+This is why one product-formula step uses exactly two input-oracle calls.
 
-That is why one product-formula step costs exactly **two oracle calls**, and a circuit with \(r\) steps reports
+For `r` query-walk steps:
 
-$$
-Q=2r.
-$$
+```text
+Q = 2r
+```
 
-The register-level implementation is in `qiskit_implementation/query_walk.py`.
+The register-level implementation is in:
+
+```text
+qiskit_implementation/query_walk.py
+```
 
 ## Calibration
 
-The finite model needs different parameters for different tree sizes. The built-in values are:
+The finite model uses different parameters for different tree sizes.
+
+Current built-in profiles:
 
 | Leaves | Runway half-length | Packet length | Evolution time | Threshold | Query steps |
 |---:|---:|---:|---:|---:|---:|
@@ -180,37 +222,31 @@ The finite model needs different parameters for different tree sizes. The built-
 | 4 | 2 | 3 | 9.4 | 0.16 | 8 |
 | 8 | 6 | 5 | 17.75 | 0.48 | 16 |
 
-These are empirical finite-model values, not constants from the NAND-tree papers.
+These are empirical values for the finite graphs in this repository. They are not constants from the theoretical NAND-tree algorithm.
 
-For each size, calibration enumerates every possible input. Let
+For each tree size, calibration evaluates every possible input.
 
-$$
-p_{\max}^{(0)}
-=
-\max_{x:f(x)=0}
-P_{\mathrm{transmit}}(x)
-$$
+It finds:
 
-and
+```text
+largest root-0 transmission
+smallest root-1 transmission
+```
 
-$$
-p_{\min}^{(1)}
-=
-\min_{x:f(x)=1}
-P_{\mathrm{transmit}}(x).
-$$
+and calculates the separation:
 
-A usable finite profile needs
+```text
+separation =
+    smallest root-1 transmission
+    -
+    largest root-0 transmission
+```
 
-$$
-p_{\min}^{(1)}-p_{\max}^{(0)}>0.
-$$
+A positive separation means one threshold can distinguish every input in that finite model.
 
-The threshold can then be placed between the two groups. After choosing the continuous-time parameters, the calibration code tries increasing product-formula step counts and keeps the first one that classifies every input with a positive separation margin.
+The current verification results are recorded in [EXPERIMENTS.md](EXPERIMENTS.md).
 
-The current measured margins, including the 256-input 8-leaf reference checks, are in [EXPERIMENTS.md](EXPERIMENTS.md).
-
-To reproduce them:
+They can be reproduced with:
 
 ```bash
 python main.py verify --leaf-count 2 --mode both
@@ -218,32 +254,47 @@ python main.py verify --leaf-count 4 --mode both
 python main.py verify --leaf-count 8 --mode both
 ```
 
-To rerun the parameter search, for example for four leaves:
+A calibration search can also be rerun:
 
 ```bash
-python main.py calibrate \
-    --leaf-count 4 \
-    --runways 2,3,4,5,6 \
-    --packets 2,3,4,5 \
-    --time-start 0.5 \
-    --time-stop 20 \
-    --time-points 79 \
-    --steps 1,2,4,8,16,32
+python main.py calibrate --leaf-count 4 --runways 2,3,4,5,6 --packets 2,3,4,5 --time-start 0.5 --time-stop 20 --time-points 79 --steps 1,2,4,8,16,32
 ```
+
+## Where this can be used
+
+This repository is mainly useful as a research and learning project.
+
+It gives a relatively small place to experiment with parts of quantum algorithms that are often hidden behind high-level examples, including oracle construction, ancilla cleanup, query counting, Hamiltonian evolution, finite wave packets, and measurement rules.
+
+Some practical experiments include:
+
+- comparing exact evolution with product-formula approximations;
+- testing different oracle constructions;
+- checking query counts and workspace cleanup;
+- measuring circuit depth and gate counts;
+- experimenting with finite-shot sampling;
+- testing confidence intervals;
+- trying noise models or different transpilation settings;
+- comparing query-based and dense-reference implementations;
+- experimenting with more efficient graph encodings.
+
+It is not intended as a practical Boolean-formula evaluator, and the current implementation should not be treated as evidence of a practical quantum speed-up.
+
+More runnable experiments are in [EXAMPLES.md](EXAMPLES.md).
 
 ## Installation
 
-Install the package and development dependencies with:
+Install the project and development dependencies with:
 
 ```bash
-python -m pip install -e .[dev]
+python -m pip install -e ".[dev]"
 ```
 
-The project currently targets Python 3.10+ with Qiskit 2.4.x, NumPy, and SciPy.
+The project currently targets Python 3.10+ and Qiskit 2.4.x.
 
-## Python API
+## API
 
-The normal entry point is:
+The normal Python entry point is:
 
 ```python
 from qiskit_implementation import evaluate_nand_tree
@@ -256,14 +307,21 @@ print("transmission:", result.transmission_probability)
 print("oracle queries:", result.query_count)
 ```
 
-For unsampled query evaluation, `result.walk_result` contains the underlying `QueryWalkResult`. Dense mode returns its `QiskitWalkResult` through the same field:
+Dense finite-Hamiltonian reference mode is also available:
 
 ```python
-dense = evaluate_nand_tree([1, 0, 1, 1], mode="dense")
-print(dense.walk_result)
+from qiskit_implementation import evaluate_nand_tree
+
+result = evaluate_nand_tree(
+    [1, 0, 1, 1],
+    mode="dense",
+)
+
+print(result.predicted_value)
+print(result.transmission_probability)
 ```
 
-For sampled evaluation:
+For finite-shot sampling:
 
 ```python
 sampled = evaluate_nand_tree(
@@ -276,35 +334,36 @@ print(sampled.predicted_value)
 print(sampled.shot_result)
 ```
 
-There is also a small object-oriented wrapper:
+There is also an object-oriented wrapper:
 
 ```python
 from qiskit_implementation import QuantumNandEvaluator
 
 evaluator = QuantumNandEvaluator([1, 0, 1, 1])
+
 result = evaluator.evaluate()
+
+print(result.predicted_value)
 ```
 
-`automatic()` remains as a compatibility alias for older code, but `evaluate()` is the preferred method name.
-
-### Public versus low-level API
-
-The top-level package intentionally exports only the main evaluation and verification interface plus the core circuit builders.
-
-Low-level experimental helpers stay in their modules. For example:
+Lower-level experimental functions can still be imported directly from their modules:
 
 ```python
 from qiskit_implementation.query_walk import simulate_query_walk
 ```
 
-This keeps the normal API small without hiding the lower-level implementation.
+### Command line
 
-## Command-line usage
-
-Run the default example:
+Run the small default Qiskit example:
 
 ```bash
 python main.py
+```
+
+Run the standalone example:
+
+```bash
+python example_usage.py
 ```
 
 Evaluate an input:
@@ -313,27 +372,28 @@ Evaluate an input:
 python main.py evaluate --leaves 1011
 ```
 
-Evaluate with finite-shot sampling:
+Evaluate using samples:
 
 ```bash
 python main.py evaluate --leaves 1011 --shots 4096 --seed 7
 ```
 
-Inspect a query walk directly:
+Compare the finite reference models:
 
 ```bash
-python main.py query-walk \
-    --leaves 1011 \
-    --runway 2 \
-    --packet 3 \
-    --time 9.4 \
-    --steps 8
+python main.py verify --leaf-count 4 --mode both
 ```
 
-Verify the explicit Qiskit profile:
+Verify the explicit Qiskit evaluator:
 
 ```bash
 python main.py qiskit-verify --leaf-count 4
+```
+
+Inspect the walk graph:
+
+```bash
+python main.py graph --leaves 1011 --runway 3
 ```
 
 ## Tests
@@ -344,47 +404,62 @@ Run the normal suite:
 python -m pytest -v -rs
 ```
 
-Run the exhaustive slow checks as well:
+Run the slow exhaustive checks:
 
 ```bash
 python -m pytest tests_folder/tests --run-slow -v -rs
 ```
 
-Run the linter:
+Run Ruff:
 
 ```bash
 python -m ruff check .
 ```
 
-The tests cover more than successful circuit construction. In particular they check:
+The tests cover behavior rather than only checking that circuits can be constructed.
 
-- bit-oracle truth tables and involution;
-- query/unquery evolution against the input-dependent Hamiltonian;
-- cleanup of address/workspace registers;
-- query counts;
-- query-walk agreement with the symmetric split reference; and
-- calibrated classification over all small inputs.
+Important checks include:
 
-The slow suite includes the exhaustive four-leaf query/split comparison and the 256-input eight-leaf Qiskit profile verification.
+- bit-oracle truth tables;
+- oracle involution;
+- query/unquery cleanup;
+- address-register cleanup;
+- workspace leakage;
+- query counting;
+- exact Hamiltonian comparisons;
+- product-formula comparisons;
+- Qiskit sampler behavior;
+- query/dense agreement;
+- exhaustive finite-profile classification.
+
+GitHub Actions runs the regular tests on supported Python versions, runs the examples, runs Ruff, builds the package, and checks that the built wheel installs correctly.
 
 ## Limitations
 
-This repository favors a directly checkable finite model over scalability.
+The current implementation favors a directly testable finite model over scalability.
 
-The graph Hamiltonian is represented as a dense matrix in several places, and the Qiskit implementation compiles small matrix evolutions into circuits. That makes comparison with exact linear algebra straightforward, but the representation becomes expensive quickly as the tree grows.
+Several graph evolutions are represented using dense Hamiltonian matrices. Qiskit then compiles those small matrix evolutions into circuits.
 
-The calibrated thresholds and timings are also specific to the finite graphs used here. They should not be treated as a scaling prescription.
+That makes exact comparisons straightforward but becomes expensive quickly as the graph grows.
 
-For that reason, the theoretical query-complexity results in the papers below should not be attributed to this dense finite implementation.
+The calibrated evolution times, runway lengths, packet sizes, thresholds, and query-step counts are also specific to the small finite graphs in this repository.
+
+They should not be extrapolated into a scaling claim.
+
+A more scalable implementation would need a structured local representation of the walk rather than constructing the full graph Hamiltonian as a dense matrix.
 
 ## References
 
-The papers most directly related to this implementation are:
+The papers most directly related to this project are:
 
-- Edward Farhi, Jeffrey Goldstone, and Sam Gutmann — *A Quantum Algorithm for the Hamiltonian NAND Tree* ([Theory of Computing](https://theoryofcomputing.org/articles/v004a008/))
-- Andrew M. Childs, Richard Cleve, Stephen P. Jordan, and David Yonge-Mallo — *Discrete-Query Quantum Algorithm for NAND Trees* ([Theory of Computing](https://theoryofcomputing.org/articles/v005a005/))
-- Andris Ambainis, Andrew M. Childs, Ben W. Reichardt, Robert Špalek, and Shengyu Zhang — *Any AND-OR Formula of Size N Can Be Evaluated in Time \(N^{1/2+o(1)}\) on a Quantum Computer* ([arXiv](https://arxiv.org/abs/quant-ph/0703015))
-- Ben W. Reichardt and Robert Špalek — *Span-Program-Based Quantum Algorithm for Evaluating Formulas* ([arXiv](https://arxiv.org/abs/0710.2630))
-- Carlos Mochon — *Hamiltonian Oracles* ([arXiv](https://arxiv.org/abs/quant-ph/0602032))
+- Edward Farhi, Jeffrey Goldstone, and Sam Gutmann — *A Quantum Algorithm for the Hamiltonian NAND Tree* — [Theory of Computing](https://theoryofcomputing.org/articles/v004a008/)
+- Andrew M. Childs, Richard Cleve, Stephen P. Jordan, and David Yonge-Mallo — *Discrete-Query Quantum Algorithm for NAND Trees* — [Theory of Computing](https://theoryofcomputing.org/articles/v005a005/)
+- Andris Ambainis, Andrew M. Childs, Ben W. Reichardt, Robert Špalek, and Shengyu Zhang — *Any AND-OR Formula of Size N Can Be Evaluated in Time N^(1/2+o(1)) on a Quantum Computer* — [arXiv](https://arxiv.org/abs/quant-ph/0703015)
+- Ben W. Reichardt and Robert Špalek — *Span-Program-Based Quantum Algorithm for Evaluating Formulas* — [arXiv](https://arxiv.org/abs/0710.2630)
+- Carlos Mochon — *Hamiltonian Oracles* — [arXiv](https://arxiv.org/abs/quant-ph/0602032)
 
-For the longer bibliography, including earlier quantum-walk, adversary-method, Hamiltonian-simulation, and classical tree-evaluation papers, see [REFERENCES.md](REFERENCES.md).
+A longer bibliography is available in [REFERENCES.md](REFERENCES.md).
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, testing, and pull-request guidelines.
