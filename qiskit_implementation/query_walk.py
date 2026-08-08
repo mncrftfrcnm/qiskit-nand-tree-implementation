@@ -1,6 +1,6 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 from math import log2
-from typing import Iterable
 
 import numpy as np
 
@@ -131,7 +131,7 @@ def build_query_walk_circuit(
     address_bits = int(log2(graph.tree.leaf_count))
 
     position = list(range(encoded.qubits))
-    address = list(range(encoded.qubits, encoded.qubits + address_bits))
+    list(range(encoded.qubits, encoded.qubits + address_bits))
     value = encoded.qubits + address_bits
     circuit = qiskit_api().QuantumCircuit(value + 1, name="query_walk")
 

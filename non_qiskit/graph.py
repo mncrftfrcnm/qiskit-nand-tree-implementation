@@ -1,5 +1,5 @@
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import Iterable, Iterator
 
 import numpy as np
 

@@ -1,6 +1,6 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 from itertools import product
-from typing import Iterable
 
 import numpy as np
 

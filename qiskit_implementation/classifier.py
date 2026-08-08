@@ -1,6 +1,7 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 from itertools import product
-from typing import Iterable, Literal
+from typing import Literal
 
 from non_qiskit.profiles import AlgorithmProfile, SamplingPlan, profile_for, sampling_plan
 from non_qiskit.tree import NandTree
@@ -14,7 +15,6 @@ from .query_walk import (
     sample_query_walk_adaptive,
     simulate_query_walk,
 )
-
 
 EvaluationMode = Literal["query", "dense"]
 

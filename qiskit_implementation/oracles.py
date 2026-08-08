@@ -1,5 +1,5 @@
+from collections.abc import Iterable
 from math import log2, pi
-from typing import Iterable
 
 from non_qiskit.tree import NandTree
 

@@ -1,5 +1,6 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, Literal
+from typing import Literal
 
 import numpy as np
 
@@ -8,7 +9,6 @@ from non_qiskit.graph import NandWalkGraph, build_walk_graph
 
 from ._imports import qiskit_api
 from .hamiltonian import encode_hamiltonian, evolution_gate, graph_evolution_gate
-
 
 CircuitMethod = Literal["exact", "trotter", "suzuki", "alternating", "symmetric"]
 

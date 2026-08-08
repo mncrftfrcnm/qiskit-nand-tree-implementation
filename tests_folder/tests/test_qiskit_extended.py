@@ -19,7 +19,6 @@ from qiskit_implementation.evolution import (  # noqa: E402
     circuit_resources,
     encoded_initial_state,
     sample_positions,
-    simulate_circuit,
 )
 from qiskit_implementation.gates import append_phase_on_state, append_x_on_state  # noqa: E402
 from qiskit_implementation.hamiltonian import encode_hamiltonian, evolution_gate  # noqa: E402

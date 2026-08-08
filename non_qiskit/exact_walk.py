@@ -1,6 +1,6 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 from math import pi
-from typing import Iterable
 
 import numpy as np
 from scipy.sparse import csr_matrix
