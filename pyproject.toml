@@ -10,9 +10,11 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
+
 authors = [
   { name = "mncrftfrcnm" },
 ]
+
 keywords = [
   "qiskit",
   "quantum computing",
@@ -37,7 +39,7 @@ classifiers = [
 dependencies = [
   "numpy>=2.0,<3",
   "scipy>=1.14",
-  "qiskit>=2.5,<3",
+  "qiskit>=2.4,<2.5",
 ]
 
 [project.optional-dependencies]
@@ -60,7 +62,10 @@ py-modules = ["main", "example_usage"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["qiskit_implementation*", "non_qiskit*"]
+include = [
+  "qiskit_implementation*",
+  "non_qiskit*",
+]
 
 [tool.pytest.ini_options]
 addopts = "-q"
