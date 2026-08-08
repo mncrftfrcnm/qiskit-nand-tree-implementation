@@ -131,7 +131,6 @@ def build_query_walk_circuit(
     address_bits = int(log2(graph.tree.leaf_count))
 
     position = list(range(encoded.qubits))
-    list(range(encoded.qubits, encoded.qubits + address_bits))
     value = encoded.qubits + address_bits
     circuit = qiskit_api().QuantumCircuit(value + 1, name="query_walk")
 
