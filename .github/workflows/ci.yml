@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_slow:
+        description: Run the exhaustive Qiskit tests
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12", "3.13"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+
+      - name: Run tests
+        run: python -m pytest -v -rs
+
+      - name: Run examples
+        run: |
+          python main.py
+          python example_usage.py
+
+  quality:
+    name: Lint and build
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install development tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+
+      - name: Run Ruff
+        run: python -m ruff check .
+
+      - name: Build package
+        run: python -m build
+
+      - name: Check wheel installation
+        shell: bash
+        run: |
+          python -m venv wheel-test
+          wheel-test/bin/python -m pip install --upgrade pip
+          wheel-test/bin/python -m pip install dist/*.whl
+          wheel-test/bin/python -c "import qiskit_implementation, non_qiskit"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: qiskit-nand-tree-dist
+          path: dist/
+          if-no-files-found: error
+
+  slow:
+    name: Exhaustive Qiskit tests
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+
+      - name: Run slow tests
+        run: python -m pytest tests_folder/tests --run-slow -v -rs
