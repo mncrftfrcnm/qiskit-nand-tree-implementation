@@ -1,40 +1,35 @@
 # Experiment notes
 
-This file records what the small finite model is checking and how the built-in parameters are chosen. I keep it separate from the README because these values are implementation details, not general constants of the NAND-tree algorithm.
+This file records the finite-model checks behind the built-in profiles. These values are implementation results for the small graphs in this repository, not constants from the asymptotic NAND-tree analysis.
 
 ## Current profiles
 
-The current built-in profiles are:
-
-| leaves | runway half-length | packet length | evolution time | threshold | query steps | oracle calls |
+| Leaves | Runway half-length | Packet length | Evolution time | Threshold | Query steps | Oracle calls |
 |---:|---:|---:|---:|---:|---:|---:|
 | 2 | 2 | 3 | 7.8 | 0.37 | 2 | 4 |
 | 4 | 2 | 3 | 9.4 | 0.16 | 8 | 16 |
 | 8 | 6 | 5 | 17.75 | 0.48 | 16 | 32 |
 
-The last column follows from the query construction: each symmetric walk step queries the input once to load `x_k` and once more to uncompute it, so the query count is `2 * query_steps`.
+Each symmetric query-walk step uses the input oracle twice: once to compute `x_k` into the work qubit and once to erase it after the controlled leaf-edge evolution.
 
-## What calibration is optimizing
+## Current verification results
 
-For one tree size, `calibrate_profile()` enumerates every possible input bit string. For each runway/packet/time candidate it records the transmission probabilities separately for inputs whose NAND root is 0 and inputs whose root is 1.
+I verify each profile by enumerating every possible input of that size. For each mode I record the largest transmission probability among root-0 inputs and the smallest transmission probability among root-1 inputs. Their difference is the separation margin.
 
-The useful quantity is
+| Leaves | Mode | Correct | Largest root-0 transmission | Smallest root-1 transmission | Separation margin | Threshold |
+|---:|---|---:|---:|---:|---:|---:|
+| 2 | exact | 4/4 | 0.014901 | 0.728411 | 0.713510 | 0.37 |
+| 2 | query | 4/4 | 0.173945 | 0.573547 | 0.399601 | 0.37 |
+| 4 | exact | 16/16 | 0.014698 | 0.309817 | 0.295119 | 0.16 |
+| 4 | query | 16/16 | 0.014698 | 0.287292 | 0.272594 | 0.16 |
+| 8 | exact | 256/256 | 0.313524 | 0.648962 | 0.335438 | 0.48 |
+| 8 | query | 256/256 | 0.332700 | 0.662253 | 0.329553 | 0.48 |
 
-```text
-smallest transmission for root=1
-    -
-largest transmission for root=0
-```
+All six rows have a positive separation margin, so the stored threshold separates the two root values for every enumerated input in the corresponding finite reference model.
 
-A positive value means that one threshold can separate every input in that finite model. The calibration threshold is placed halfway between those two boundary probabilities.
+## Reproducing the results
 
-After the continuous-time parameters are chosen, the calibration code tries product-formula step counts in increasing order. It keeps the first step count that gets every input correct with a positive separation margin.
-
-This is why the values above should not be treated as theoretical constants or extrapolated to larger NAND trees.
-
-## Reproducing the checks
-
-For the non-Qiskit reference and split-walk model:
+Run the non-Qiskit exact and split/query checks with:
 
 ```bash
 python main.py verify --leaf-count 2 --mode both
@@ -42,26 +37,34 @@ python main.py verify --leaf-count 4 --mode both
 python main.py verify --leaf-count 8 --mode both
 ```
 
-Each result reports:
-
-- `largest_zero_probability`
-- `smallest_one_probability`
-- `separation_margin`
-- `threshold`
-- classification accuracy across all inputs
-
-For the explicit Qiskit query circuit:
+The explicit Qiskit query circuit can be checked with:
 
 ```bash
 python main.py qiskit-verify --leaf-count 2
 python main.py qiskit-verify --leaf-count 4
 ```
 
-The exhaustive 8-leaf Qiskit verification covers all 256 input strings and is intentionally marked as a slow test.
+The 8-leaf Qiskit verification covers all 256 inputs and is marked as a slow test. Run the full slow suite with:
 
-## Re-running calibration
+```bash
+python -m pytest tests_folder/tests --run-slow -v -rs
+```
 
-The CLI exposes the same search implemented in `non_qiskit/calibration.py`. For example:
+## How calibration chooses a profile
+
+`calibrate_profile()` searches candidate runway lengths, packet lengths, and evolution times. For each candidate it enumerates every input and calculates
+
+```text
+smallest transmission for root=1
+    -
+largest transmission for root=0
+```
+
+A positive value means one threshold can separate every input in that finite model. The threshold is placed halfway between those two boundary probabilities.
+
+After the continuous-time parameters are selected, calibration tries product-formula step counts in increasing order and keeps the first count that classifies every input with a positive separation margin.
+
+For example, the 4-leaf search can be rerun with:
 
 ```bash
 python main.py calibrate \
@@ -74,22 +77,20 @@ python main.py calibrate \
   --steps 1,2,4,8,16,32
 ```
 
-When changing a built-in profile, I would record the old and new separation margins here instead of changing a constant without explaining why.
+## Tests I rely on most
 
-## Checks that matter most to the query implementation
+The most important checks for the query implementation are:
 
-The most useful tests are not just "does a circuit build?" checks:
+- `test_bit_oracle_truth_table`
+- `test_bit_oracle_is_an_involution`
+- `test_two_query_oracle_block_matches_oracle_hamiltonian`
+- `test_query_walk_matches_symmetric_split_for_all_two_leaf_inputs`
+- `test_query_walk_counts_calls_and_cleans_workspace`
+- the slow four-leaf query/split comparison
+- the slow exhaustive eight-leaf Qiskit profile verification
 
-1. `test_bit_oracle_truth_table` checks that the address register selects the expected input bit.
-2. `test_bit_oracle_is_an_involution` checks the property used to uncompute the queried value.
-3. `test_two_query_oracle_block_matches_oracle_hamiltonian` compares the full query/unquery block against direct input-dependent Hamiltonian evolution and checks that the workspace is clean afterward.
-4. `test_query_walk_matches_symmetric_split_for_all_two_leaf_inputs` compares the explicit Qiskit construction with the reference split evolution.
-5. `test_query_walk_counts_calls_and_cleans_workspace` checks both the `2 * steps` query count and leakage into workspace/padding states.
+These tests cover the input lookup, uncomputation, query count, workspace cleanup, and agreement with the reference evolution.
 
-Those tests are the ones I would look at first after changing the oracle or the walk decomposition.
+## Limitation of these experiments
 
-## What is still limited
-
-The implementation deliberately favors a directly checkable finite model over scalability. The graph Hamiltonian is represented as a dense matrix and the Qiskit implementation compiles small matrix evolutions into circuits. That makes exact comparisons straightforward, but it becomes expensive quickly as the tree grows.
-
-A future scalable version would need a more structured encoding of the walk and oracle rather than extending these calibrated dense instances to large trees.
+The reference implementation uses dense finite Hamiltonian matrices, and parts of the Qiskit implementation compile small matrix evolutions into circuits. This makes exact comparisons straightforward, but it is not a scalable representation for large NAND trees.

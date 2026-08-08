@@ -34,22 +34,21 @@ class QuantumNandEvaluator:
     def classical_value(self) -> int:
         return NandTree(self.leaves).root_value
 
-    def automatic(
+    def evaluate(
         self,
         *,
         shots: int | None = None,
         seed: int | None = None,
-        confidence: float | None = None,
-        adaptive: bool = False,
     ) -> NandEvaluation:
         return evaluate_nand_tree(
             self.leaves,
             mode="query",
             shots=shots,
             seed=seed,
-            confidence=confidence,
-            adaptive=adaptive,
         )
+
+    # Kept as a compatibility alias for code written against versions <= 0.6.2.
+    automatic = evaluate
 
     def dense_walk(
         self,

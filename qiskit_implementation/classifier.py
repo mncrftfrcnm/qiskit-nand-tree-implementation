@@ -6,7 +6,7 @@ from typing import Literal
 from non_qiskit.profiles import AlgorithmProfile, SamplingPlan, profile_for, sampling_plan
 from non_qiskit.tree import NandTree
 
-from .evolution import run_qiskit_walk
+from .evolution import QiskitWalkResult, run_qiskit_walk
 from .query_walk import (
     QueryShotResult,
     QueryWalkResult,
@@ -30,8 +30,15 @@ class NandEvaluation:
     transmission_probability: float
     query_count: int
     shot_result: QueryShotResult | None
-    statevector_result: QueryWalkResult | None
+    walk_result: QiskitWalkResult | QueryWalkResult | None
     sampling_plan: SamplingPlan | None = None
+
+    @property
+    def statevector_result(self) -> QueryWalkResult | None:
+        """Compatibility view of the old query-only result field."""
+        if isinstance(self.walk_result, QueryWalkResult):
+            return self.walk_result
+        return None
 
 
 def evaluate_nand_tree(
@@ -77,7 +84,7 @@ def evaluate_nand_tree(
             transmission_probability=result.transmission_probability,
             query_count=0,
             shot_result=None,
-            statevector_result=None,
+            walk_result=result,
         )
 
     if mode != "query":
@@ -136,7 +143,7 @@ def evaluate_nand_tree(
         transmission_probability=result.transmission_probability,
         query_count=result.query_count,
         shot_result=None,
-        statevector_result=result,
+        walk_result=result,
     )
 
 
@@ -156,7 +163,7 @@ def _sampled_evaluation(
         transmission_probability=sampled.transmission_probability,
         query_count=sampled.query_count,
         shot_result=sampled,
-        statevector_result=None,
+        walk_result=None,
         sampling_plan=plan,
     )
 
