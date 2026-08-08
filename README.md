@@ -24,35 +24,35 @@ A NAND tree is a balanced binary tree with input bits at the leaves and a NAND g
 
 Each internal node computes
 
-\[
+$$
 \operatorname{NAND}(a,b)=1-(a\land b).
-\]
+$$
 
 The quantum algorithm does not evaluate every gate from the leaves upward. Instead, it turns the tree into a graph and performs a quantum walk on that graph.
 
-In the continuous-time version by Farhi, Goldstone, and Gutmann, a path called the **runway** is attached to the root of the tree. Each leaf also gets an auxiliary vertex. If the hidden input bit \(x_j\) is 1, the corresponding leaf is connected to its auxiliary vertex.
+In the continuous-time version by Farhi, Goldstone, and Gutmann, a path called the **runway** is attached to the root of the tree. Each leaf also gets an auxiliary vertex. If the hidden input bit $x_j$ is 1, the corresponding leaf is connected to its auxiliary vertex.
 
 The walk Hamiltonian is
 
-\[
+$$
 H=-A=H_D+H_O,
-\]
+$$
 
-where \(A\) is the graph adjacency matrix, \(H_D\) contains the fixed tree and runway edges, and \(H_O\) contains the input-dependent leaf edges.
+where $A$ is the graph adjacency matrix, $H_D$ contains the fixed tree and runway edges, and $H_O$ contains the input-dependent leaf edges.
 
 A right-moving wave packet starts on the left side of the runway and evolves under
 
-\[
+$$
 |\psi(t)\rangle=e^{-iHt}|\psi(0)\rangle.
-\]
+$$
 
 For the relevant low-energy part of the state, the value at the root changes how the packet scatters. One case is mostly transmitted through the root region and the other is mostly reflected. That transmission behavior is what is used to decide the NAND-tree value.
 
 The query version in this repository uses the standard bit oracle
 
-\[
+$$
 U_O|k,a\rangle=|k,a\oplus x_k\rangle.
-\]
+$$
 
 A query step loads the selected leaf value into a work qubit, applies the corresponding leaf-edge evolution, and calls the oracle again to clean the work qubit. The driver and oracle evolutions are then combined with a symmetric product formula.
 
