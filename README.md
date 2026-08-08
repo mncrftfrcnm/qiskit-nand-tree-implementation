@@ -25,7 +25,7 @@ A NAND tree is a balanced binary tree with input bits at the leaves and a NAND g
 Each internal node computes
 
 $$
-\operatorname{NAND}(a,b)=1-(a\land b).
+\mathrm{NAND}(a,b)=1-(a\land b).
 $$
 
 The quantum algorithm does not evaluate every gate from the leaves upward. Instead, it turns the tree into a graph and performs a quantum walk on that graph.
