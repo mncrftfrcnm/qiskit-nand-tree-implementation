@@ -1,6 +1,6 @@
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from math import log2
-from typing import Iterable, Iterator
 
 
 def is_power_of_two(value: int) -> bool:

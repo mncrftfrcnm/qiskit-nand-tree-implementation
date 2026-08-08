@@ -1,6 +1,6 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 from math import acos, sin
-from typing import Iterable
 
 from .tree import NandTree
 

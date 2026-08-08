@@ -8,7 +8,6 @@ from non_qiskit.graph import NandWalkGraph
 
 from ._imports import qiskit_api
 
-
 EvolutionMethod = Literal["exact", "trotter", "suzuki"]
 
 
