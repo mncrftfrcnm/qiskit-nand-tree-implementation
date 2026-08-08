@@ -90,7 +90,7 @@ def build_oracle_evolution_block(
     *,
     time: float,
 ):
-    """Query a leaf, evolve its edge, then clear the work qubit."""
+    """Apply the input-dependent leaf-edge evolution with a clean work qubit."""
 
     encoded = encode_hamiltonian(graph.hamiltonian)
     address_bits = int(log2(graph.tree.leaf_count))
@@ -107,10 +107,23 @@ def build_oracle_evolution_block(
         label="oracle_edges",
     ).control(1)
 
+    # The walk register stores a graph vertex, not a leaf number. For leaf and
+    # auxiliary vertices, this first step computes the corresponding leaf index k
+    # into the address register. Internal tree/runway vertices leave it unchanged.
     circuit.append(load_address, [*position, *address])
+
+    # Query x_k into the value qubit. That qubit now says whether the input-dependent
+    # leaf edge is present, so it can control the leaf-edge evolution below.
     circuit.append(query, [*address, value])
     circuit.append(leaf_edges, [value, *position])
+
+    # The bit oracle is its own inverse. Querying it a second time erases x_k from
+    # the work qubit instead of leaving it entangled with the walk. This is also why
+    # one product-formula step counts as two oracle calls.
     circuit.append(query, [*address, value])
+
+    # load_address is also an involution, so this removes the temporary leaf index
+    # and returns both workspace registers to |0>.
     circuit.append(load_address, [*position, *address])
     return circuit
 
@@ -143,6 +156,8 @@ def build_query_walk_circuit(
     oracle_step = build_oracle_evolution_block(graph, graph.tree.leaves, time=dt).to_gate()
     all_qubits = list(range(circuit.num_qubits))
 
+    # Symmetric splitting: half a driver step, one input-dependent step, then the
+    # other half driver step. The oracle block contains two calls to U_O.
     for _ in range(steps):
         circuit.append(driver, position)
         circuit.append(oracle_step, all_qubits)
