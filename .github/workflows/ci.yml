@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       run_slow:
-        description: Run the exhaustive Qiskit tests
+        description: Run exhaustive Qiskit tests
         required: false
         default: false
         type: boolean
@@ -22,6 +22,7 @@ jobs:
   test:
     name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+
     strategy:
       fail-fast: false
       matrix:
@@ -35,13 +36,11 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: pyproject.toml
 
       - name: Install project
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .[dev]
+          python -m pip install -e ".[dev]"
 
       - name: Run tests
         run: python -m pytest -v -rs
@@ -64,13 +63,11 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: pyproject.toml
 
-      - name: Install development tools
+      - name: Install project
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .[dev]
+          python -m pip install -e ".[dev]"
 
       - name: Run Ruff
         run: python -m ruff check .
@@ -78,16 +75,15 @@ jobs:
       - name: Build package
         run: python -m build
 
-      - name: Check wheel installation
-        shell: bash
+      - name: Test built wheel
         run: |
           python -m venv wheel-test
           wheel-test/bin/python -m pip install --upgrade pip
           wheel-test/bin/python -m pip install dist/*.whl
           wheel-test/bin/python -c "import qiskit_implementation, non_qiskit"
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v7
+      - name: Upload distributions
+        uses: actions/upload-artifact@v6
         with:
           name: qiskit-nand-tree-dist
           path: dist/
@@ -106,13 +102,11 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: pyproject.toml
 
       - name: Install project
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .[dev]
+          python -m pip install -e ".[dev]"
 
       - name: Run slow tests
         run: python -m pytest tests_folder/tests --run-slow -v -rs
