@@ -55,11 +55,41 @@ class SamplingPlan:
     mode: str
 
 
-# Exhaustively calibrated finite-size profiles. They are not asymptotic rules.
+# These are finite-size calibration results, not constants from the NAND-tree papers.
+# calibrate_profile() searches runway length, packet length, and evolution time using
+# every possible input for the requested tree size. For each candidate it measures
+# the gap between the largest transmission probability for root=0 and the smallest
+# transmission probability for root=1. The threshold is the midpoint of that gap.
+#
+# After choosing the best exact-walk candidate, calibration tries increasing symmetric
+# product-formula step counts and keeps the first one that classifies every input with
+# a positive separation margin. EXPERIMENTS.md records the current values and commands
+# used to reproduce the checks.
 BUILTIN_PROFILES: dict[int, AlgorithmProfile] = {
-    2: AlgorithmProfile(2, 2, 3, 7.8, 0.37, 2),
-    4: AlgorithmProfile(4, 2, 3, 9.4, 0.16, 8),
-    8: AlgorithmProfile(8, 6, 5, 17.75, 0.48, 16),
+    2: AlgorithmProfile(
+        leaf_count=2,
+        runway_half_length=2,
+        packet_length=3,
+        evolution_time=7.8,
+        threshold=0.37,
+        query_steps=2,
+    ),
+    4: AlgorithmProfile(
+        leaf_count=4,
+        runway_half_length=2,
+        packet_length=3,
+        evolution_time=9.4,
+        threshold=0.16,
+        query_steps=8,
+    ),
+    8: AlgorithmProfile(
+        leaf_count=8,
+        runway_half_length=6,
+        packet_length=5,
+        evolution_time=17.75,
+        threshold=0.48,
+        query_steps=16,
+    ),
 }
 
 
