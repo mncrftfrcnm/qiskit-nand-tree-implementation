@@ -59,6 +59,8 @@ def test_bit_oracle_truth_table():
 
 
 def test_bit_oracle_is_an_involution():
+    # The query walk uses the same oracle once to load x_k and once to erase it.
+    # If U_O^2 were not the identity, the work qubit would stay entangled with the walk state.
     for leaves in product((0, 1), repeat=4):
         oracle = build_bit_oracle(leaves)
         circuit = qiskit.QuantumCircuit(3)
@@ -166,6 +168,9 @@ def test_leaf_index_loader_is_an_involution_and_ignores_internal_vertices():
 
 @pytest.mark.parametrize("leaf_count", [2, 4])
 def test_two_query_oracle_block_matches_oracle_hamiltonian(leaf_count):
+    # This is the important query/unquery check: after the controlled leaf-edge evolution,
+    # the address/work registers should be clean and the position register should match
+    # direct evolution under the input-dependent Hamiltonian.
     rng = np.random.default_rng(leaf_count)
     for leaves in product((0, 1), repeat=leaf_count):
         graph = build_walk_graph(leaves, runway_half_length=2)

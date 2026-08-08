@@ -10,30 +10,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-
 authors = [
   { name = "mncrftfrcnm" },
-]
-
-keywords = [
-  "qiskit",
-  "quantum computing",
-  "quantum algorithms",
-  "quantum walk",
-  "nand tree",
-]
-
-classifiers = [
-  "Development Status :: 3 - Alpha",
-  "Intended Audience :: Developers",
-  "Intended Audience :: Science/Research",
-  "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
-  "Topic :: Scientific/Engineering",
 ]
 
 dependencies = [
@@ -48,11 +26,6 @@ dev = [
   "pytest>=8",
   "ruff>=0.9",
 ]
-
-[project.urls]
-Homepage = "https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation"
-Repository = "https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation"
-Issues = "https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation/issues"
 
 [project.scripts]
 nandtree = "main:main"

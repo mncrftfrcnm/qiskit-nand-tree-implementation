@@ -1,18 +1,31 @@
-# qiskit-nand-tree-implementation
+# NAND-tree evaluation in Qiskit
 
-`qiskit-nand-tree-implementation` is a small Qiskit project for experimenting with the quantum NAND-tree evaluation algorithm. It includes the NAND-tree oracle, the walk Hamiltonian, a query-based circuit model, exact and sampled evaluation, and tests for small trees.
+This repository is an implementation of the quantum NAND-tree algorithm using Qiskit. The main goal is to make the walk construction and the oracle calls concrete enough to inspect on small examples.
 
-## Project status
+I use a balanced binary NAND tree, convert it into the walk graph from the NAND-tree algorithm, and simulate the resulting dynamics in two ways:
 
-This project is currently a **prototype**.
+- directly from the finite Hamiltonian; and
+- with a query-style Qiskit circuit that separates the fixed walk from the input oracle.
 
-The 2-, 4-, and 8-leaf cases are implemented and tested as small finite models, including an explicit query circuit and exhaustive checks for the supported calibration profiles. The code is useful for studying the algorithm and trying changes to the Qiskit implementation, but it is not a scalable implementation of the theoretical asymptotic algorithm yet.
+The code currently has calibrated examples for 2, 4, and 8 leaves. These are small finite simulations, not a scalable implementation of the asymptotic algorithm.
 
-The main limitation is the walk evolution: parts of the current implementation still build finite Hamiltonian matrices and compile them into Qiskit circuits. That is fine for small experiments, but it gets expensive quickly as the tree grows.
+## What I wanted to check
 
-## How the algorithm works
+The main question was whether the transmission probability separates inputs whose NAND-tree value is 0 from inputs whose value is 1.
 
-A NAND tree is a balanced binary tree with input bits at the leaves and a NAND gate at every internal node. For example:
+The implementation also checks a few details that are easy to get wrong when translating the algorithm into a circuit:
+
+- whether the bit oracle has the expected truth table;
+- whether the oracle can be queried and then unqueried without leaving garbage in the work qubit;
+- whether the query circuit matches the corresponding split Hamiltonian evolution on small cases;
+- how many oracle calls each walk step uses; and
+- whether the finite-size parameters classify every supported small input correctly.
+
+The tests in `tests_folder/tests` cover these properties directly.
+
+## NAND tree and walk graph
+
+For four input bits the Boolean tree is
 
 ```text
                  NAND
@@ -22,133 +35,107 @@ A NAND tree is a balanced binary tree with input bits at the leaves and a NAND g
            x0  x1    x2  x3
 ```
 
-Each internal node computes
+with
 
 $$
-\mathrm{NAND}(a,b)=1-(a\land b).
+\operatorname{NAND}(a,b)=1-(a\land b).
 $$
 
-The quantum algorithm does not evaluate every gate from the leaves upward. Instead, it turns the tree into a graph and performs a quantum walk on that graph.
+The quantum algorithm does not evaluate the gates from the leaves upward. Instead, it attaches a path (the runway) to the root and performs a quantum walk on the resulting graph. Input bits change the leaf edges of that graph.
 
-In the continuous-time version by Farhi, Goldstone, and Gutmann, a path called the **runway** is attached to the root of the tree. Each leaf also gets an auxiliary vertex. If the hidden input bit $x_j$ is 1, the corresponding leaf is connected to its auxiliary vertex.
-
-The walk Hamiltonian is
+The finite Hamiltonian used here is
 
 $$
 H=-A=H_D+H_O,
 $$
 
-where $A$ is the graph adjacency matrix, $H_D$ contains the fixed tree and runway edges, and $H_O$ contains the input-dependent leaf edges.
+where $H_D$ contains the fixed runway/tree edges and $H_O$ contains the input-dependent leaf edges.
 
-A right-moving wave packet starts on the left side of the runway and evolves under
+A packet starts on the left side of the runway and evolves under
 
 $$
 |\psi(t)\rangle=e^{-iHt}|\psi(0)\rangle.
 $$
 
-For the relevant low-energy part of the state, the value at the root changes how the packet scatters. One case is mostly transmitted through the root region and the other is mostly reflected. That transmission behavior is what is used to decide the NAND-tree value.
+For the calibrated small instances, the amount of probability transmitted to the right side of the runway is used to classify the root value.
 
-The query version in this repository uses the standard bit oracle
+## Query circuit
+
+The query version uses the bit oracle
 
 $$
 U_O|k,a\rangle=|k,a\oplus x_k\rangle.
 $$
 
-A query step loads the selected leaf value into a work qubit, applies the corresponding leaf-edge evolution, and calls the oracle again to clean the work qubit. The driver and oracle evolutions are then combined with a symmetric product formula.
+For one oracle-evolution block, the circuit:
 
-The original algorithm and its query-model conversion are explained in much more detail here:
+1. derives the leaf address from the current walk position;
+2. queries $x_k$ into a work qubit;
+3. uses that work qubit to control the leaf-edge evolution;
+4. queries the oracle again to clear the work qubit; and
+5. uncomputes the temporary leaf address.
 
-- [Farhi, Goldstone, and Gutmann — *A Quantum Algorithm for the Hamiltonian NAND Tree*](https://theoryofcomputing.org/articles/v004a008/)
-- [Childs, Cleve, Jordan, and Yonge-Mallo — *Discrete-Query Quantum Algorithm for NAND Trees*](https://theoryofcomputing.org/articles/v005a005/)
-- [Childs, Reichardt, Špalek, and Zhang — *Every NAND Formula of Size N Can Be Evaluated in Time N^(1/2+o(1))*](https://arxiv.org/abs/quant-ph/0703015)
-- [Reichardt and Špalek — *Span-Program-Based Quantum Algorithm for Evaluating Formulas*](https://theoryofcomputing.org/articles/v008a013/)
+That is why one product-formula step uses two calls to the input oracle. The comments in `qiskit_implementation/query_walk.py` explain this register-by-register.
 
-## Where this can be used
+## Calibration
 
-This is mainly a research and learning project rather than an application library.
+The finite model needs different parameters for different tree sizes. The built-in values are in `non_qiskit/profiles.py`.
 
-It is useful for studying how a quantum-walk algorithm is translated into Qiskit, especially the parts that are easy to miss in a notebook-only implementation: the input oracle, ancilla cleanup, query counting, finite wave packets, Hamiltonian evolution, and the final measurement rule.
+They are calibration values for these small simulations rather than constants from the asymptotic analysis. The calibration code searches runway length, packet length, evolution time, and query-step choices and keeps parameter sets that separate the two NAND outputs across all inputs of that size.
 
-It can also be used as a small test bed for:
+I keep notes on the current values and how to reproduce the checks in [EXPERIMENTS.md](EXPERIMENTS.md).
 
-- comparing exact Hamiltonian evolution with Trotter or Suzuki approximations;
-- testing alternative oracle circuits;
-- measuring circuit depth, two-qubit gate counts, and query counts;
-- studying sampling error and confidence intervals;
-- trying noise models or hardware-oriented transpilation on small instances;
-- checking changes against every possible 2-, 4-, or 8-leaf input;
-- experimenting with more efficient encodings of the walk graph.
+## Running it
 
-The repo is not meant for evaluating large Boolean formulas in practice, and the current implementation should not be treated as evidence of a practical quantum speed-up.
-
-## API
-
-Install the project in editable mode:
+Install the project and development dependencies:
 
 ```bash
 python -m pip install -e .[dev]
 ```
 
-The simplest entry point is `evaluate_nand_tree`:
-
-```python
-from qiskit_implementation import evaluate_nand_tree
-
-result = evaluate_nand_tree([1, 0, 1, 1])
-
-print(result.predicted_value)
-print(result.transmission_probability)
-print(result.query_count)
-```
-
-For repeated experiments on the same input, `QuantumNandEvaluator` provides a slightly more convenient interface:
-
-```python
-from qiskit_implementation import QuantumNandEvaluator
-
-evaluator = QuantumNandEvaluator([1, 0, 1, 1])
-
-exact = evaluator.automatic()
-sampled = evaluator.automatic(shots=4096, seed=7)
-
-print(exact.predicted_value)
-print(sampled.predicted_value)
-```
-
-The lower-level circuit builders are also public:
-
-```python
-from qiskit_implementation import (
-    build_bit_oracle,
-    build_phase_oracle,
-    build_query_walk_circuit,
-    build_reversible_nand_circuit,
-)
-```
-
-For checking a calibrated tree size across every possible input:
-
-```python
-from qiskit_implementation import verify_qiskit_profile
-
-report = verify_qiskit_profile(4)
-print(report.accuracy)
-print(report.failed_inputs)
-```
-
-There are two runnable examples in the repository:
-
-```bash
-python main.py
-python example_usage.py
-```
-
-The CLI can also evaluate a specific input:
+Evaluate one input:
 
 ```bash
 python main.py evaluate --leaves 1011
 ```
 
-## Contributing
+Run the default example:
 
-Contributions are welcome. Setup instructions, test commands, code-style notes, and guidance for algorithm changes are in [CONTRIBUTING.md](CONTRIBUTING.md).
+```bash
+python main.py
+```
+
+Run the tests:
+
+```bash
+python -m pytest -v -rs
+```
+
+Run Ruff:
+
+```bash
+python -m ruff check .
+```
+
+To reproduce the finite-profile checks:
+
+```bash
+python main.py verify --leaf-count 2 --mode both
+python main.py verify --leaf-count 4 --mode both
+python main.py qiskit-verify --leaf-count 2
+```
+
+The 8-leaf exhaustive Qiskit check is marked slow because it evaluates all 256 inputs.
+
+## Limitations
+
+The current implementation builds finite Hamiltonian matrices and compiles small instances into Qiskit circuits. This is useful for checking the mechanics of the algorithm, but the matrix representation grows quickly and is not the scalable construction used to obtain the theoretical complexity result.
+
+The thresholds and evolution parameters are also finite-size calibration choices. They should not be interpreted as universal parameters for arbitrary NAND formulas.
+
+## References
+
+The two papers I used most directly for the walk and query constructions are:
+
+- Farhi, Goldstone, and Gutmann, *A Quantum Algorithm for the Hamiltonian NAND Tree*: https://theoryofcomputing.org/articles/v004a008/
+- Childs, Cleve, Jordan, and Yonge-Mallo, *Discrete-Query Quantum Algorithm for NAND Trees*: https://theoryofcomputing.org/articles/v005a005/
