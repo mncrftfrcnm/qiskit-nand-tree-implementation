@@ -18,10 +18,14 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
 jobs:
   test:
     name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     strategy:
       fail-fast: false
@@ -36,11 +40,15 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
 
       - name: Install project
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
+
+      - name: Check installed dependencies
+        run: python -m pip check
 
       - name: Run tests
         run: python -m pytest -v -rs
@@ -50,9 +58,86 @@ jobs:
           python main.py
           python example_usage.py
 
-  quality:
-    name: Lint and build
+
+  qiskit-compat:
+    name: Qiskit ${{ matrix.qiskit-version }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        qiskit-version:
+          - "2.4.2"
+          - "2.5.0"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install selected Qiskit version
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "numpy>=2.0,<3" \
+            "scipy>=1.14" \
+            "qiskit==${{ matrix.qiskit-version }}" \
+            "pytest>=8"
+          python -m pip install --no-deps -e .
+
+      - name: Show installed versions
+        run: |
+          python --version
+          python -c "import qiskit; print('Qiskit', qiskit.__version__)"
+          python -c "import numpy; print('NumPy', numpy.__version__)"
+          python -c "import scipy; print('SciPy', scipy.__version__)"
+
+      - name: Run compatibility tests
+        run: python -m pytest -v -rs
+
+
+  minimum-dependencies:
+    name: Minimum supported dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install minimum dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "numpy==2.0.0" \
+            "scipy==1.14.0" \
+            "qiskit==2.4.0" \
+            "pytest>=8"
+          python -m pip install --no-deps -e .
+
+      - name: Check installed dependencies
+        run: python -m pip check
+
+      - name: Run tests
+        run: python -m pytest -v -rs
+
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: test
 
     steps:
@@ -63,36 +148,40 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          cache: pip
 
-      - name: Install project
+      - name: Install project and coverage tools
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
+          python -m pip install pytest-cov
 
-      - name: Run Ruff
-        run: python -m ruff check .
-
-      - name: Build package
-        run: python -m build
-
-      - name: Test built wheel
+      - name: Run coverage
         run: |
-          python -m venv wheel-test
-          wheel-test/bin/python -m pip install --upgrade pip
-          wheel-test/bin/python -m pip install dist/*.whl
-          wheel-test/bin/python -c "import qiskit_implementation, non_qiskit"
+          python -m pytest \
+            --cov=qiskit_implementation \
+            --cov=non_qiskit \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            -v -rs
 
-      - name: Upload distributions
+      - name: Upload coverage report
         uses: actions/upload-artifact@v6
         with:
-          name: qiskit-nand-tree-dist
-          path: dist/
+          name: coverage-report
+          path: coverage.xml
           if-no-files-found: error
 
-  slow:
-    name: Exhaustive Qiskit tests
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow }}
+
+  quality:
+    name: Lint, build, and package
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    needs:
+      - test
+      - qiskit-compat
+      - minimum-dependencies
 
     steps:
       - name: Check out repository
@@ -102,11 +191,73 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+          python -m pip install twine
+
+      - name: Run Ruff
+        run: python -m ruff check .
+
+      - name: Build package
+        run: python -m build
+
+      - name: Validate distributions
+        run: python -m twine check dist/*
+
+      - name: Test built wheel in clean environment
+        run: |
+          python -m venv /tmp/nandtree-wheel-test
+          /tmp/nandtree-wheel-test/bin/python -m pip install --upgrade pip
+          /tmp/nandtree-wheel-test/bin/python -m pip install dist/*.whl
+
+      - name: Smoke test installed package outside repository
+        working-directory: /tmp
+        run: |
+          /tmp/nandtree-wheel-test/bin/python -c \
+            "import qiskit_implementation, non_qiskit"
+
+          /tmp/nandtree-wheel-test/bin/python -c \
+            "from qiskit_implementation import evaluate_nand_tree; result = evaluate_nand_tree((1, 0)); assert result.correct; print(result)"
+
+      - name: Smoke test installed CLI
+        working-directory: /tmp
+        run: |
+          /tmp/nandtree-wheel-test/bin/nandtree --help
+          /tmp/nandtree-wheel-test/bin/nandtree evaluate --leaves 10
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v6
+        with:
+          name: qiskit-nand-tree-dist
+          path: dist/
+          if-no-files-found: error
+
+
+  slow:
+    name: Exhaustive Qiskit tests
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    needs: quality
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
 
       - name: Install project
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
 
-      - name: Run slow tests
-        run: python -m pytest tests_folder/tests --run-slow -v -rs
+      - name: Run exhaustive slow tests
+        run: python -m pytest tests --run-slow -v -rs
