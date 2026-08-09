@@ -2,9 +2,9 @@
 
 This repository is a small Qiskit implementation of quantum NAND-tree evaluation. can be used to compare a finite Hamiltonian walk with an explicit query-style circuit and to check the oracle bookkeeping on small trees.
 
-The built-in profiles cover **2, 4, and 8 leaves**. They are calibrated finite examples, not a scalable implementation of the asymptotic algorithm.
+The built-in profiles cover **2, 4, and 8 leaves, and also un-capped**. They are calibrated finite examples, not a scalable implementation of the asymptotic algorithm.
 
-(I hope I will continue developing this project, implementing the full algorithm)
+(There is an experimental version of the un-capped tree generation. I hope I will continue developing this project, implementing the full algorithm.)
 
 ## Project status
 
@@ -92,6 +92,81 @@ and the direct continuous-time reference evolution is in:
 ```text
 non_qiskit/exact_walk.py
 ```
+
+### Custom walk parameters
+
+The calibrated finite profiles remain the default, but there is an un-cupped version
+
+```python
+result = evaluate_nand_tree((1, 0, 1, 1))
+```
+
+Walk parameters can also be supplied explicitly:
+
+```python
+from qiskit_implementation import WalkParameters, evaluate_nand_tree
+
+params = WalkParameters(
+    runway_half_length=20,
+    packet_length=8,
+    evolution_time=4.0,
+)
+
+result = evaluate_nand_tree(
+    (1, 0, 1, 1),
+    walk_parameters=params,
+)
+```
+
+For scaling experiments, parameters can instead be generated from one fixed
+rule rather than calibrated independently for each tree size:
+
+```python
+from qiskit_implementation import theoretical_parameters
+
+params = theoretical_parameters(
+    len(leaves),
+    gamma=8.0,
+)
+
+result = evaluate_nand_tree(
+    leaves,
+    walk_parameters=params,
+)
+```
+
+Here the parameter rule uses
+
+\[
+L = \lceil \gamma \sqrt{N} \rceil,\qquad
+M = \lceil L^2 \rceil,\qquad
+t = L/2,
+\]
+
+where \(N\) is the number of leaves, \(L\) is the packet length, and \(M\) is
+the runway half-length.
+
+`gamma` and `runway_factor` are finite-size experiment parameters. When
+studying scaling with tree size, they should be kept fixed rather than
+re-fitted independently for every \(N\).
+
+Omitting `walk_parameters` preserves the calibrated finite profiles used by
+earlier versions.
+
+### Parameter-scaling note
+
+`gamma=8.0` is an example finite-size constant, not a theoretically prescribed
+value. The important scaling is
+
+\[
+L = \Theta(\sqrt{N}),\qquad
+M = \Theta(L^2),\qquad
+t = L/2.
+\]
+
+When comparing different tree sizes, use the same constants rather than tuning
+them independently for each \(N\).
+
 
 ### Initial packet
 
@@ -442,7 +517,12 @@ GitHub Actions runs the regular tests on supported Python versions, runs the exa
 
 ## Limitations
 
-The current implementation favors a directly testable finite model over scalability.
+The repository includes calibrated finite profiles for reproducible small
+examples, as well as an opt-in parameterized mode for experiments using a
+fixed \(L=\Theta(\sqrt{N})\) scaling rule. These are finite simulations and
+should not be interpreted as a scalable implementation of the asymptotic
+algorithm.
+
 
 Several graph evolutions are represented using dense Hamiltonian matrices. Qiskit then compiles those small matrix evolutions into circuits.
 
