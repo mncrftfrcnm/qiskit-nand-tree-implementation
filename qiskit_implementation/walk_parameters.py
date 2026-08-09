@@ -1,13 +1,3 @@
-"""Walk-parameter definitions for finite NAND-tree simulations.
-
-This module is intentionally independent of the existing calibrated profile API.
-Existing callers can keep using ``profile_for(...)`` and the current evaluator
-defaults. New callers can inject ``WalkParameters`` explicitly or derive them
-from a fixed asymptotic rule with ``theoretical_parameters(...)``.
-"""
-
-from __future__ import annotations
-
 from dataclasses import dataclass
 from math import ceil, isfinite, sqrt
 from typing import Protocol
@@ -15,7 +5,6 @@ from typing import Protocol
 
 class _ProfileLike(Protocol):
     """Structural type for backward-compatible conversion from old profiles."""
-
     runway_half_length: int
     packet_length: int
     evolution_time: float
@@ -23,23 +12,6 @@ class _ProfileLike(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class WalkParameters:
-    """Parameters that define the finite Hamiltonian walk itself.
-
-    These values are intentionally separate from finite-calibration metadata
-    such as a decision threshold, and from simulation choices such as the
-    number/order of product-formula steps.
-
-    Attributes:
-        runway_half_length:
-            Number of runway sites available on each side of the attachment
-            region, using the convention already used by the project.
-        packet_length:
-            Number of consecutive left-runway sites occupied by the initial
-            wave packet.
-        evolution_time:
-            Continuous-time Hamiltonian evolution duration.
-    """
-
     runway_half_length: int
     packet_length: int
     evolution_time: float
