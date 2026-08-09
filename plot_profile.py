@@ -2,8 +2,8 @@ from itertools import product
 
 import matplotlib.pyplot as plt
 
-from qiskit_implementation import evaluate_nand_tree
 from non_qiskit.profiles import profile_for
+from qiskit_implementation import evaluate_nand_tree
 
 leaf_count = 4
 profile = profile_for(leaf_count)
