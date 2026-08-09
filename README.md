@@ -198,6 +198,10 @@ the second call performs:
 
 This is why one product-formula step uses exactly two input-oracle calls.
 
+query_count counts calls to the abstract input oracle U
+O
+. It does not represent the transpiled circuit depth, two-qubit gate count, or physical hardware execution cost.
+
 For `r` query-walk steps:
 
 ```text
