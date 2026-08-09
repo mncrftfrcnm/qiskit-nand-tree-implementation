@@ -4,7 +4,7 @@ This repository is a small Qiskit implementation of quantum NAND-tree evaluation
 
 The built-in profiles cover **2, 4, and 8 leaves**. They are calibrated finite examples, not a scalable implementation of the asymptotic algorithm.
 
-(I hope I will continue developing this, implementing the full algorithm)
+(I hope I will continue developing this project, implementing the full algorithm)
 
 ## Project status
 
