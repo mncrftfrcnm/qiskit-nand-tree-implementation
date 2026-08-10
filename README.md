@@ -1,6 +1,8 @@
 # Qiskit NAND-tree implementation
+[![CI](https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation/actions/workflows/ci.yml/badge.svg)](https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation/actions/workflows/ci.yml)
 
-This repository is a small Qiskit implementation of quantum NAND-tree evaluation. can be used to compare a finite Hamiltonian walk with an explicit query-style circuit and to check the oracle bookkeeping on small trees.
+
+This repository is a  Qiskit implementation of quantum NAND-tree evaluation. can be used to compare a finite Hamiltonian walk with an explicit query-style circuit and to check the oracle bookkeeping on small trees.
 
 The built-in profiles cover **2, 4, and 8 leaves, and also un-capped**. They are calibrated finite examples, not a scalable implementation of the asymptotic algorithm.
 
