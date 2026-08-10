@@ -6,6 +6,12 @@ from .classifier import (
     evaluate_nand_tree,
     verify_qiskit_profile,
 )
+from .walk_parameters import (
+    NandExperimentConfig,
+    WalkParameters,
+    theoretical_parameters,
+)
+
 from .evaluator import QuantumNandEvaluator
 from .oracles import build_bit_oracle
 from .query_walk import build_query_walk_circuit
@@ -20,4 +26,7 @@ __all__ = [
     "build_reversible_nand_circuit",
     "evaluate_nand_tree",
     "verify_qiskit_profile",
+    "NandExperimentConfig",
+    "WalkParameters",
+    "theoretical_parameters"
 ]
