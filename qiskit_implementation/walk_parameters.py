@@ -106,3 +106,25 @@ def theoretical_parameters(
         packet_length=packet_length,
         evolution_time=packet_length / 2,
     )
+
+@dataclass(frozen=True, slots=True)
+class NandExperimentConfig:
+    walk: WalkParameters
+    query_steps: int
+    threshold: float
+
+    def __post_init__(self) -> None:
+        if isinstance(self.query_steps, bool) or not isinstance(self.query_steps, int):
+            raise TypeError("query_steps must be an integer")
+        if self.query_steps < 1:
+            raise ValueError("query_steps must be positive")
+        if not 0.0 <= self.threshold <= 1.0:
+            raise ValueError("threshold must be between 0 and 1")
+
+    @classmethod
+    def from_profile(cls, profile: _ProfileLike) -> "NandExperimentConfig":
+        return cls(
+            walk=WalkParameters.from_profile(profile),
+            query_steps=profile.query_steps,
+            threshold=profile.threshold,
+        )
