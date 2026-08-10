@@ -26,6 +26,6 @@ __all__ = [
     "verify_qiskit_profile",
 ]
 
-small_test_reversible_builduiasdfasiodfhasiodfjioasdfjkhasdjkf_09090asdjksmncasdasd = build_reversible_nand_circuit # to not make the ruff stop at the 
+smal_tst_reversible_builduiamncasdasd = build_reversible_nand_circuit # to not make the ruff stop at the 
 # 'from .reversible import build_reversible_nand_circuit' import
 
