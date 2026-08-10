@@ -122,16 +122,25 @@ For scaling experiments, parameters can instead be generated from one fixed
 rule rather than calibrated independently for each tree size:
 
 ```python
-from qiskit_implementation import theoretical_parameters
+from qiskit_implementation import (
+    NandExperimentConfig,
+    WalkParameters,
+    evaluate_nand_tree,
+)
 
-params = theoretical_parameters(
-    len(leaves),
-    gamma=8.0,
+experiment = NandExperimentConfig(
+    walk=WalkParameters(
+        runway_half_length=20,
+        packet_length=8,
+        evolution_time=4.0,
+    ),
+    query_steps=16,
+    threshold=0.5,
 )
 
 result = evaluate_nand_tree(
-    leaves,
-    walk_parameters=params,
+    (1, 0, 1, 1),
+    experiment=experiment,
 )
 ```
 
@@ -427,7 +436,7 @@ result = evaluator.evaluate()
 print(result.predicted_value)
 ```
 
-Lower-level experimental functions can still be imported directly from their modules:
+Lower-level experimental functions can be imported directly from their modules:
 
 ```python
 from qiskit_implementation.query_walk import simulate_query_walk
