@@ -30,3 +30,5 @@ __all__ = [
     "WalkParameters",
     "theoretical_parameters"
 ]
+
+build_reversible_nand_circuit
