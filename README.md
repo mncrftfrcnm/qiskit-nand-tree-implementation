@@ -95,30 +95,11 @@ and the direct continuous-time reference evolution is in:
 non_qiskit/exact_walk.py
 ```
 
-### Custom walk parameters
+### Custom experiment parameters
 
-The calibrated finite profiles remain the default, but there is an un-cupped version
-
-```python
-result = evaluate_nand_tree((1, 0, 1, 1))
-```
-
-Walk parameters can also be supplied explicitly:
-
-```python
-from qiskit_implementation import WalkParameters, evaluate_nand_tree
-
-params = WalkParameters(
-    runway_half_length=20,
-    packet_length=8,
-    evolution_time=4.0,
-)
-
-result = evaluate_nand_tree(
-    (1, 0, 1, 1),
-    walk_parameters=params,
-)
-```
+The calibrated finite profiles remain the default. For a custom experiment,
+supply the walk geometry, product-formula step count, and decision threshold
+together:
 
 For scaling experiments, parameters can instead be generated from one fixed
 rule rather than calibrated independently for each tree size:
@@ -126,24 +107,18 @@ rule rather than calibrated independently for each tree size:
 ```python
 from qiskit_implementation import (
     NandExperimentConfig,
-    WalkParameters,
     evaluate_nand_tree,
+    theoretical_parameters,
 )
 
+leaves = (1, 0, 1, 1)
 experiment = NandExperimentConfig(
-    walk=WalkParameters(
-        runway_half_length=20,
-        packet_length=8,
-        evolution_time=4.0,
-    ),
+    walk=theoretical_parameters(len(leaves), gamma=8.0),
     query_steps=16,
     threshold=0.5,
 )
 
-result = evaluate_nand_tree(
-    (1, 0, 1, 1),
-    experiment=experiment,
-)
+result = evaluate_nand_tree(leaves, experiment=experiment)
 ```
 
 Here the parameter rule uses
@@ -161,8 +136,9 @@ the runway half-length.
 studying scaling with tree size, they should be kept fixed rather than
 re-fitted independently for every \(N\).
 
-Omitting `walk_parameters` preserves the calibrated finite profiles used by
-earlier versions.
+Omitting `experiment` preserves the calibrated finite profiles used by earlier
+versions. A custom experiment configuration is not calibrated automatically;
+its threshold and query-step count are caller-supplied finite-size choices.
 
 ### Parameter-scaling note
 
@@ -372,7 +348,8 @@ Some practical experiments include:
 
 It is not intended as a practical Boolean-formula evaluator, and the current implementation should not be treated as evidence of a practical quantum speed-up.
 
-More runnable experiments are in [EXAMPLES.md](EXAMPLES.md).
+More runnable experiments are in [EXAMPLES.md](EXAMPLES.md) and the
+[examples directory](examples/README.md).
 
 ## Installation
 

@@ -15,6 +15,7 @@ from .query_walk import (
     sample_query_walk_adaptive,
     simulate_query_walk,
 )
+from .walk_parameters import NandExperimentConfig
 
 EvaluationMode = Literal["query", "dense"]
 
@@ -26,7 +27,7 @@ class NandEvaluation:
     predicted_value: int
     correct: bool
     mode: str
-    profile: AlgorithmProfile
+    profile: AlgorithmProfile | NandExperimentConfig
     transmission_probability: float
     query_count: int
     shot_result: QueryShotResult | None
@@ -53,11 +54,20 @@ def evaluate_nand_tree(
     max_shots: int = 8192,
     batch_shots: int = 256,
     profile: AlgorithmProfile | None = None,
+    experiment: NandExperimentConfig | None = None,
 ) -> NandEvaluation:
     tree = NandTree(leaves)
-    profile = profile or profile_for(tree.leaf_count)
-    if profile.leaf_count != tree.leaf_count:
-        raise ValueError("profile leaf count does not match the input")
+    if profile is not None and experiment is not None:
+        raise ValueError("choose either profile or experiment, not both")
+
+    if experiment is None:
+        profile = profile or profile_for(tree.leaf_count)
+        if profile.leaf_count != tree.leaf_count:
+            raise ValueError("profile leaf count does not match the input")
+        experiment = NandExperimentConfig.from_profile(profile)
+        configuration: AlgorithmProfile | NandExperimentConfig = profile
+    else:
+        configuration = experiment
 
     requested = sum(value is not None for value in (shots, confidence)) + int(adaptive)
     if requested > 1:
@@ -68,11 +78,11 @@ def evaluate_nand_tree(
             raise ValueError("sampling is available only in query mode")
         result = run_qiskit_walk(
             tree.leaves,
-            runway_half_length=profile.runway_half_length,
-            packet_length=profile.packet_length,
-            time=profile.evolution_time,
+            runway_half_length=experiment.walk.runway_half_length,
+            packet_length=experiment.walk.packet_length,
+            time=experiment.walk.evolution_time,
             method="exact",
-            threshold=profile.threshold,
+            threshold=experiment.threshold,
         )
         return NandEvaluation(
             leaves=tree.leaves,
@@ -80,7 +90,7 @@ def evaluate_nand_tree(
             predicted_value=result.predicted_value,
             correct=result.predicted_value == tree.root_value,
             mode=mode,
-            profile=profile,
+            profile=configuration,
             transmission_probability=result.transmission_probability,
             query_count=0,
             shot_result=None,
@@ -92,14 +102,16 @@ def evaluate_nand_tree(
 
     graph, circuit = build_query_walk_circuit(
         tree.leaves,
-        runway_half_length=profile.runway_half_length,
-        packet_length=profile.packet_length,
-        time=profile.evolution_time,
-        steps=profile.query_steps,
+        runway_half_length=experiment.walk.runway_half_length,
+        packet_length=experiment.walk.packet_length,
+        time=experiment.walk.evolution_time,
+        steps=experiment.query_steps,
     )
 
     plan = None
     if confidence is not None:
+        if isinstance(configuration, NandExperimentConfig):
+            raise ValueError("confidence sampling requires a calibrated profile")
         plan = sampling_plan(profile, confidence=confidence, mode="query")
         shots = plan.shots
 
@@ -107,31 +119,31 @@ def evaluate_nand_tree(
         sampled = sample_query_walk_adaptive(
             graph,
             circuit,
-            steps=profile.query_steps,
-            threshold=profile.threshold,
+            steps=experiment.query_steps,
+            threshold=experiment.threshold,
             min_shots=min_shots,
             max_shots=max_shots,
             batch_shots=batch_shots,
             seed=seed,
         )
-        return _sampled_evaluation(tree, profile, sampled, plan)
+        return _sampled_evaluation(tree, configuration, sampled, plan)
 
     if shots is not None:
         sampled = sample_query_walk(
             graph,
             circuit,
-            steps=profile.query_steps,
-            threshold=profile.threshold,
+            steps=experiment.query_steps,
+            threshold=experiment.threshold,
             shots=shots,
             seed=seed,
         )
-        return _sampled_evaluation(tree, profile, sampled, plan)
+        return _sampled_evaluation(tree, configuration, sampled, plan)
 
     result = simulate_query_walk(
         graph,
         circuit,
-        steps=profile.query_steps,
-        threshold=profile.threshold,
+        steps=experiment.query_steps,
+        threshold=experiment.threshold,
     )
     return NandEvaluation(
         leaves=tree.leaves,
@@ -139,7 +151,7 @@ def evaluate_nand_tree(
         predicted_value=result.predicted_value,
         correct=result.predicted_value == tree.root_value,
         mode=mode,
-        profile=profile,
+        profile=configuration,
         transmission_probability=result.transmission_probability,
         query_count=result.query_count,
         shot_result=None,
@@ -149,7 +161,7 @@ def evaluate_nand_tree(
 
 def _sampled_evaluation(
     tree: NandTree,
-    profile: AlgorithmProfile,
+    profile: AlgorithmProfile | NandExperimentConfig,
     sampled: QueryShotResult,
     plan: SamplingPlan | None,
 ) -> NandEvaluation:

@@ -8,6 +8,8 @@ class _ProfileLike(Protocol):
     runway_half_length: int
     packet_length: int
     evolution_time: float
+    threshold: float
+    query_steps: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,8 +109,17 @@ def theoretical_parameters(
         evolution_time=packet_length / 2,
     )
 
+
 @dataclass(frozen=True, slots=True)
 class NandExperimentConfig:
+    """Explicit settings for a finite NAND-tree classification experiment.
+
+    ``WalkParameters`` defines the simulated walk, while classification also
+    requires a product-formula step count and a decision threshold.  This
+    object intentionally keeps those concerns together for uncalibrated,
+    caller-supplied experiments.
+    """
+
     walk: WalkParameters
     query_steps: int
     threshold: float
@@ -118,7 +129,13 @@ class NandExperimentConfig:
             raise TypeError("query_steps must be an integer")
         if self.query_steps < 1:
             raise ValueError("query_steps must be positive")
-        if not 0.0 <= self.threshold <= 1.0:
+        if isinstance(self.threshold, bool):
+            raise TypeError("threshold must be a real number")
+        try:
+            threshold = float(self.threshold)
+        except (TypeError, ValueError) as error:
+            raise TypeError("threshold must be a real number") from error
+        if not isfinite(threshold) or not 0.0 <= threshold <= 1.0:
             raise ValueError("threshold must be between 0 and 1")
 
     @classmethod
