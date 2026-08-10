@@ -260,4 +260,4 @@ jobs:
           python -m pip install -e ".[dev]"
 
       - name: Run exhaustive slow tests
-        run: python -m pytest tests --run-slow -v -rs
+        run: python -m pytest tests_folder/tests --run-slow -v -rs
