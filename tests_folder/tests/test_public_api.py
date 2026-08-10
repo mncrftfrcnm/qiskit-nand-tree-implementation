@@ -4,12 +4,15 @@ import qiskit_implementation.query_walk as query_walk
 
 EXPECTED_PUBLIC_API = {
     "NandEvaluation",
+    "NandExperimentConfig",
     "QiskitVerification",
     "QuantumNandEvaluator",
+    "WalkParameters",
     "build_bit_oracle",
     "build_query_walk_circuit",
     "build_reversible_nand_circuit",
     "evaluate_nand_tree",
+    "theoretical_parameters",
     "verify_qiskit_profile",
 }
 
