@@ -60,8 +60,13 @@ def calibrate_profile(
         raise ValueError("exhaustive calibration is limited to at most 8 leaves")
 
     times = np.asarray(tuple(float(value) for value in time_values), dtype=float)
-    if times.size == 0 or np.any(times <= 0):
-        raise ValueError("time_values must contain positive values")
+    if times.size == 0 or not np.all(np.isfinite(times)) or np.any(times <= 0):
+        raise ValueError("time_values must contain finite positive values")
+
+    # Materialize this iterable once because every runway candidate must be
+    # evaluated against the same packet grid.  Without this, a generator is
+    # exhausted after the first runway and silently changes the search space.
+    packets = tuple(packet_values)
 
     inputs = tuple(product((0, 1), repeat=leaf_count))
     roots = {leaves: NandTree(leaves).root_value for leaves in inputs}
@@ -72,7 +77,7 @@ def calibrate_profile(
             leaves: build_walk_graph(leaves, runway_half_length=runway)
             for leaves in inputs
         }
-        for packet in packet_values:
+        for packet in packets:
             if packet < 1 or packet > runway + 1:
                 continue
             curves = {
