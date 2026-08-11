@@ -25,7 +25,3 @@ __all__ = [
     "theoretical_parameters",
     "verify_qiskit_profile",
 ]
-if __name__ == 'main':
-    smal_tst_reversibleuiamasdasd = build_reversible_nand_circuit # to prevent the ruff stopping at 
-    # the 'from .reversible import build_reversible_nand_circuit' import
-
