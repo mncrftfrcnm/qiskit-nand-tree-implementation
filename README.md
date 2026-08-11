@@ -2,14 +2,16 @@
 
 [![CI](https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation/actions/workflows/ci.yml/badge.svg)](https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation/actions/workflows/ci.yml)
 
-This repository provides a finite Qiskit prototype for quantum NAND-tree
-evaluation. It compares direct Hamiltonian evolution, an explicit query-style
-circuit, and non-Qiskit exact linear-algebra references on small trees. The
-implementation also exposes the oracle bookkeeping, query/unquery behavior,
-workspace cleanup, and query counts used by the walk.
 
-Built-in calibrated profiles cover 2, 4, and 8 leaves. Custom power-of-two
-experiments are supported, but are not automatically calibrated or scalable.
+This repository is a  Qiskit implementation of quantum NAND-tree evaluation. can be used to compare a finite Hamiltonian walk with an explicit query-style circuit and to check the oracle bookkeeping on small trees.
+
+The built-in profiles cover **2, 4, and 8 leaves, and also un-capped**. They are calibrated finite examples, not a scalable implementation of the asymptotic algorithm.
+
+As of now, there are experimental power-of-two tree-generations, with no limit to the amount of leaves
+
+(I hope I will continue developing this project, implementing the full, endless algorithm.)
+
+
 
 ## Project status
 
@@ -265,9 +267,9 @@ the second call performs:
 
 This is why one product-formula step uses exactly two input-oracle calls.
 
-`query_count` counts calls to the abstract input oracle \(U_O\). It does not
-represent transpiled circuit depth, two-qubit gate count, or physical hardware
-execution cost.
+query_count counts calls to the abstract input oracle U
+O
+. It does not represent the transpiled circuit depth, two-qubit gate count, or physical hardware execution cost.
 
 For `r` query-walk steps:
 
@@ -362,7 +364,7 @@ Install the project and development dependencies with:
 python -m pip install -e ".[dev]"
 ```
 
-The project currently targets Python 3.10+ and Qiskit 2.4–2.5.
+The project currently targets Python 3.10+ and Qiskit 2.4.x.
 
 ## API
 
