@@ -1,5 +1,6 @@
 # Qiskit NAND-tree implementation
 
+
 [![CI](https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation/actions/workflows/ci.yml/badge.svg)](https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation/actions/workflows/ci.yml)
 
 This repository implements finite quantum NAND-tree experiments in Qiskit. It supports calibrated profiles for 2, 4, and 8 leaves, plus an experimental parameterized mode for larger power-of-two inputs.
@@ -236,9 +237,7 @@ The second call performs:
 
 This is why one product-formula step uses exactly two input-oracle calls.
 
-query_count counts calls to the abstract input oracle U
-O
-. It does not represent the transpiled circuit depth, two-qubit gate count, or physical hardware execution cost.
+`query_count` counts calls to the abstract input oracle $U_O$. It does not represent the transpiled circuit depth, two-qubit gate count, or physical hardware execution cost.
 
 For `r` query-walk steps:
 
@@ -306,7 +305,7 @@ Install the project and development dependencies with:
 python -m pip install -e ".[dev]"
 ```
 
-The project currently targets Python 3.10+ and Qiskit 2.4.x.
+The project currently targets Python 3.10+ and Qiskit 2.4â€“2.5.
 
 ## API
 
@@ -440,20 +439,20 @@ GitHub Actions runs the regular tests, examples, Ruff, and compatibility checks 
 
 This repository simulates finite NAND-tree walks and is not a scalable implementation of the asymptotic algorithm. Some graph evolutions use dense Hamiltonian matrices that Qiskit compiles into circuits, causing resource requirements to grow quickly with tree size.
 
-The built-in parameters are empirically calibrated for small graphs. Consequently, the repository’s results should not be interpreted as evidence of the theoretical query complexity or a practical quantum speed-up. A scalable implementation would require a structured local encoding instead of dense graph matrices.
+The built-in parameters are empirically calibrated for small graphs. Consequently, the repositoryâ€™s results should not be interpreted as evidence of the theoretical query complexity or a practical quantum speed-up. A scalable implementation would require a structured local encoding instead of dense graph matrices.
 
 ## References
 
 The papers most directly related to this project are:
 
-- Edward Farhi, Jeffrey Goldstone, and Sam Gutmann — *A Quantum Algorithm for the Hamiltonian NAND Tree* — [Theory of Computing](https://theoryofcomputing.org/articles/v004a008/)
-- Andrew M. Childs, Richard Cleve, Stephen P. Jordan, and David Yonge-Mallo — *Discrete-Query Quantum Algorithm for NAND Trees* — [Theory of Computing](https://theoryofcomputing.org/articles/v005a005/)
-- Andris Ambainis, Andrew M. Childs, Ben W. Reichardt, Robert Špalek, and Shengyu Zhang — *Any AND-OR Formula of Size N Can Be Evaluated in Time N^(1/2+o(1)) on a Quantum Computer* — [arXiv](https://arxiv.org/abs/quant-ph/0703015)
-- Ben W. Reichardt and Robert Špalek — *Span-Program-Based Quantum Algorithm for Evaluating Formulas* — [arXiv](https://arxiv.org/abs/0710.2630)
-- Carlos Mochon — *Hamiltonian Oracles* — [arXiv](https://arxiv.org/abs/quant-ph/0602032)
+- Edward Farhi, Jeffrey Goldstone, and Sam Gutmann â€” *A Quantum Algorithm for the Hamiltonian NAND Tree* â€” [Theory of Computing](https://theoryofcomputing.org/articles/v004a008/)
+- Andrew M. Childs, Richard Cleve, Stephen P. Jordan, and David Yonge-Mallo â€” *Discrete-Query Quantum Algorithm for NAND Trees* â€” [Theory of Computing](https://theoryofcomputing.org/articles/v005a005/)
+- Andris Ambainis, Andrew M. Childs, Ben W. Reichardt, Robert Å palek, and Shengyu Zhang â€” *Any AND-OR Formula of Size N Can Be Evaluated in Time N^(1/2+o(1)) on a Quantum Computer* â€” [arXiv](https://arxiv.org/abs/quant-ph/0703015)
+- Ben W. Reichardt and Robert Å palek â€” *Span-Program-Based Quantum Algorithm for Evaluating Formulas* â€” [arXiv](https://arxiv.org/abs/0710.2630)
+- Carlos Mochon â€” *Hamiltonian Oracles* â€” [arXiv](https://arxiv.org/abs/quant-ph/0602032)
 
 A longer bibliography is available in [REFERENCES.md](REFERENCES.md).
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, testing, and pull-request guidelines.
+Contributions are welcome.
