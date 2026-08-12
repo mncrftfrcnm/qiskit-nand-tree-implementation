@@ -19,3 +19,4 @@ python examples/01_basic_evaluation.py
 | `03_custom_experiment_config.py` | An explicit walk, query-step, and threshold configuration. |
 | `04_sampling_and_confidence.py` | Fixed-shot, confidence-derived, and adaptive sampling. |
 | `05_oracle_and_workspace_cleanup.py` | Oracle involution, query count, and clean temporary workspace. |
+| `06_plot_calibration.py` | A calibration scatter plot with the built-in decision threshold. |
