@@ -305,7 +305,7 @@ Install the project and development dependencies with:
 python -m pip install -e ".[dev]"
 ```
 
-The project currently targets Python 3.10+ and Qiskit 2.4 - “2.5.
+The project currently targets Python 3.10+ and Qiskit 2.4 - 2.5.
 
 ## API
 
@@ -445,11 +445,12 @@ The built-in parameters are empirically calibrated for small graphs. Consequentl
 
 The papers most directly related to this project are:
 
-- Edward Farhi, Jeffrey Goldstone, and Sam Gutmann ” *A Quantum Algorithm for the Hamiltonian NAND Tree* ” [Theory of Computing](https://theoryofcomputing.org/articles/v004a008/)
-- Andrew M. Childs, Richard Cleve, Stephen P. Jordan, and David Yonge-Mallo ” *Discrete-Query Quantum Algorithm for NAND Trees* ” [Theory of Computing](https://theoryofcomputing.org/articles/v005a005/)
-- Andris Ambainis, Andrew M. Childs, Ben W. Reichardt, Robert Å palek, and Shengyu Zhang ” *Any AND-OR Formula of Size N Can Be Evaluated in Time N^(1/2+o(1)) on a Quantum Computer* ” [arXiv](https://arxiv.org/abs/quant-ph/0703015)
-- Ben W. Reichardt and Robert Å palek ” *Span-Program-Based Quantum Algorithm for Evaluating Formulas* ” [arXiv](https://arxiv.org/abs/0710.2630)
-- Carlos Mochon ” *Hamiltonian Oracles* ” [arXiv](https://arxiv.org/abs/quant-ph/0602032)
+
+- Edward Farhi, Jeffrey Goldstone, and Sam Gutmann — *A Quantum Algorithm for the Hamiltonian NAND Tree* — [Theory of Computing](https://theoryofcomputing.org/articles/v004a008/)
+- Andrew M. Childs, Richard Cleve, Stephen P. Jordan, and David Yonge-Mallo — *Discrete-Query Quantum Algorithm for NAND Trees* — [Theory of Computing](https://theoryofcomputing.org/articles/v005a005/)
+- Andris Ambainis, Andrew M. Childs, Ben W. Reichardt, Robert Špalek, and Shengyu Zhang — *Any AND-OR Formula of Size N Can Be Evaluated in Time N^(1/2+o(1)) on a Quantum Computer* — [arXiv](https://arxiv.org/abs/quant-ph/0703015)
+- Ben W. Reichardt and Robert Špalek — *Span-Program-Based Quantum Algorithm for Evaluating Formulas* — [arXiv](https://arxiv.org/abs/0710.2630)
+- Carlos Mochon — *Hamiltonian Oracles* — [arXiv](https://arxiv.org/abs/quant-ph/0602032)
 
 A longer bibliography is available in [REFERENCES.md](REFERENCES.md).
 
