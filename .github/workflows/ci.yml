@@ -58,6 +58,13 @@ jobs:
           python main.py
           python example_usage.py
 
+      - name: Run examples directory
+        run: |
+          for example in examples/*.py; do
+            echo "Running $example"
+            python "$example"
+          done
+
 
   qiskit-compat:
     name: Qiskit ${{ matrix.qiskit-version }}
