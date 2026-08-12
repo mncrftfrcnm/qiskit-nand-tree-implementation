@@ -128,11 +128,11 @@ result = evaluate_nand_tree(leaves, experiment=experiment)
 
 Here the parameter rule uses
 
-\[
+$$
 L = \lceil \gamma \sqrt{N} \rceil,\qquad
 M = \lceil L^2 \rceil,\qquad
-t = L/2,
-\]
+t = L/2
+$$
 
 where \(N\) is the number of leaves, \(L\) is the packet length, and \(M\) is
 the runway half-length.
