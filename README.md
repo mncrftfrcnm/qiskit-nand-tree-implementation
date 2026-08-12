@@ -2,12 +2,8 @@
 
 [![CI](https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation/actions/workflows/ci.yml/badge.svg)](https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation/actions/workflows/ci.yml)
 
+This repository implements finite quantum NAND-tree experiments in Qiskit. It supports calibrated profiles for 2, 4, and 8 leaves, plus an experimental parameterized mode for larger power-of-two inputs.
 
-This repository is a  Qiskit implementation of quantum NAND-tree evaluation. can be used to compare a finite Hamiltonian walk with an explicit query-style circuit and to check the oracle bookkeeping on small trees.
-
-The built-in profiles cover **2, 4, and 8 leaves, and also un-capped**. They are calibrated finite examples, not a scalable implementation of the asymptotic algorithm.
-
-As of now, there are experimental power-of-two tree-generations, with no limit to the amount of leaves
 
 (I hope I will continue developing this project, implementing the full, endless algorithm.)
 
@@ -15,17 +11,11 @@ As of now, there are experimental power-of-two tree-generations, with no limit t
 
 ## Project status
 
-This project is currently a **prototype**.
-
-The small supported tree sizes are useful for checking the mechanics of the algorithm: the input oracle, query/unquery behavior, Hamiltonian evolution, transmission probabilities, and query counts.
-
-The main limitation is scalability. Several parts of the walk are represented using finite Hamiltonian matrices and compiled into Qiskit circuits. That makes the implementation easy to compare against exact linear algebra, but it becomes expensive quickly as the tree grows.
-
-The theoretical complexity results from the NAND-tree papers should therefore not be attributed directly to this implementation.
+This project is an experimental implementation for studying oracle construction, Hamiltonian evolution, query counting, and finite NAND-tree walks. Its calibrated profiles are intended for small-scale verification rather than performance claims.
 
 ## NAND tree and walk graph
 
-A balanced NAND tree stores input bits at its leaves and applies NAND gates at the internal vertices.
+A balanced NAND tree places input bits at the leaves and NAND gates at internal nodes.
 
 For four leaves:
 
@@ -43,9 +33,7 @@ Each internal node computes:
 NAND(a, b) = 1 - (a AND b)
 ```
 
-A classical implementation can evaluate the tree from the leaves upward.
-
-The quantum algorithm takes a different approach. It turns the tree into part of a graph and studies a quantum walk on that graph.
+The quantum algorithm embeds the tree in a graph and evaluates it through a quantum walk.
 
 A path called the **runway** is attached to the root. The input bits control extra edges attached to the leaves.
 
@@ -102,9 +90,8 @@ non_qiskit/exact_walk.py
 
 ### Custom experiment parameters
 
-The calibrated finite profiles remain the default. For a custom experiment,
-supply the walk geometry, product-formula step count, and decision threshold
-together:
+For a custom experiment, supply the walk geometry, product-formula step count,
+and decision threshold together:
 
 For scaling experiments, parameters can instead be generated from one fixed
 rule rather than calibrated independently for each tree size:
@@ -134,31 +121,15 @@ M = \lceil L^2 \rceil,\qquad
 t = L/2
 $$
 
-where \(N\) is the number of leaves, \(L\) is the packet length, and \(M\) is
+`gamma=8.0` is an example; scaling experiments should use consistent constants across all tree sizes.
+
+Here, \(N\) is the number of leaves, \(L\) is the packet length, and \(M\) is
 the runway half-length.
 
-`gamma` and `runway_factor` are finite-size experiment parameters. When
-studying scaling with tree size, they should be kept fixed rather than
-re-fitted independently for every \(N\).
+For scaling comparisons, keep `gamma` and `runway_factor` fixed across tree sizes.
 
 Omitting `experiment` preserves the calibrated finite profiles used by earlier
-versions. A custom experiment configuration is not calibrated automatically;
-its threshold and query-step count are caller-supplied finite-size choices.
-
-### Parameter-scaling note
-
-`gamma=8.0` is an example finite-size constant, not a theoretically prescribed
-value. The important scaling is
-
-\[
-L = \Theta(\sqrt{N}),\qquad
-M = \Theta(L^2),\qquad
-t = L/2.
-\]
-
-When comparing different tree sizes, use the same constants rather than tuning
-them independently for each \(N\).
-
+versions. Custom configurations require explicit `threshold` and `query_steps` values.
 
 ### Initial packet
 
@@ -172,7 +143,7 @@ For a packet of length `L`, the amplitudes follow the right-moving phase pattern
 
 for the selected runway positions, and zero elsewhere.
 
-The phase pattern matters because the packet is intended to move toward the root rather than behave like a stationary probability distribution.
+This phase pattern produces motion toward the root.
 
 ### Transmission
 
@@ -251,15 +222,13 @@ One block performs:
 4. query `x_k` again;
 5. uncompute the temporary leaf address.
 
-The second query clears the work qubit.
-
-Because the oracle is its own inverse:
+Because the oracle is self-inverse, the second query resets the work qubit:
 
 ```text
 U_O * U_O = I
 ```
 
-the second call performs:
+The second call performs:
 
 ```text
 |k, x_k> -> |k, 0>
@@ -295,27 +264,9 @@ Current built-in profiles:
 | 4 | 2 | 3 | 9.4 | 0.16 | 8 |
 | 8 | 6 | 5 | 17.75 | 0.48 | 16 |
 
-These are empirical values for the finite graphs in this repository. They are not constants from the theoretical NAND-tree algorithm.
+These are empirical values for the finite graphs in this repository.
 
-For each tree size, calibration evaluates every possible input.
-
-It finds:
-
-```text
-largest root-0 transmission
-smallest root-1 transmission
-```
-
-and calculates the separation:
-
-```text
-separation =
-    smallest root-1 transmission
-    -
-    largest root-0 transmission
-```
-
-A positive separation means one threshold can distinguish every input in that finite model.
+Calibration evaluates every input and computes the gap between the smallest root-1 transmission and the largest root-0 transmission. A positive gap means that a single threshold separates the two output classes.
 
 The current verification results are recorded in [EXPERIMENTS.md](EXPERIMENTS.md).
 
@@ -335,23 +286,14 @@ python main.py calibrate --leaf-count 4 --runways 2,3,4,5,6 --packets 2,3,4,5 --
 
 ## Where this can be used
 
-This repository is mainly useful as a research and learning project.
-
 It gives a relatively small place to experiment with parts of quantum algorithms that are often hidden behind high-level examples, including oracle construction, ancilla cleanup, query counting, Hamiltonian evolution, finite wave packets, and measurement rules.
 
 Some practical experiments include:
 
-- comparing exact evolution with product-formula approximations;
-- testing different oracle constructions;
-- checking query counts and workspace cleanup;
-- measuring circuit depth and gate counts;
-- experimenting with finite-shot sampling;
-- testing confidence intervals;
-- trying noise models or different transpilation settings;
-- comparing query-based and dense-reference implementations;
-- experimenting with more efficient graph encodings.
-
-It is not intended as a practical Boolean-formula evaluator, and the current implementation should not be treated as evidence of a practical quantum speed-up.
+- comparing exact, dense, and product-formula evolution;
+- inspecting oracle construction, cleanup, and query counts;
+- studying sampling, noise, and transpilation effects;
+- exploring alternative graph encodings and walk parameters.
 
 More runnable experiments are in [EXAMPLES.md](EXAMPLES.md) and the
 [examples directory](examples/README.md).
@@ -490,39 +432,15 @@ Run Ruff:
 python -m ruff check .
 ```
 
-The tests cover behavior rather than only checking that circuits can be constructed.
+The tests validate oracle behavior and cleanup, query counting, Hamiltonian and product-formula accuracy, sampler behavior, and exhaustive classification for the calibrated profiles.
 
-Important checks include:
-
-- bit-oracle truth tables;
-- oracle involution;
-- query/unquery cleanup;
-- address-register cleanup;
-- workspace leakage;
-- query counting;
-- exact Hamiltonian comparisons;
-- product-formula comparisons;
-- Qiskit sampler behavior;
-- query/dense agreement;
-- exhaustive finite-profile classification.
-
-GitHub Actions runs the regular tests on supported Python versions, runs the examples, runs Ruff, and runs other code quality checks
+GitHub Actions runs the regular tests, examples, Ruff, and compatibility checks across supported Python versions.
 
 ## Limitations
 
-The repository includes finite profiles for reproducible small examples, as well as an opt-in parameterized mode for experiments using a
-fixed \(L=\Theta(\sqrt{N})\) scaling rule. These are finite simulations and should not be interpreted as a scalable implementation of the asymptotic algorithm.
+This repository simulates finite NAND-tree walks and is not a scalable implementation of the asymptotic algorithm. Some graph evolutions use dense Hamiltonian matrices that Qiskit compiles into circuits, causing resource requirements to grow quickly with tree size.
 
-
-Several graph evolutions are represented using dense Hamiltonian matrices. Qiskit then compiles those small matrix evolutions into circuits.
-
-That makes exact comparisons straightforward but becomes expensive quickly as the graph grows.
-
-The calibrated evolution times, runway lengths, packet sizes, thresholds, and query-step counts are also specific to the small finite graphs in this repository.
-
-They should not be extrapolated into a scaling claim.
-
-A more scalable implementation would need a structured local representation of the walk rather than constructing the full graph Hamiltonian as a dense matrix.
+The built-in parameters are empirically calibrated for small graphs. Consequently, the repository’s results should not be interpreted as evidence of the theoretical query complexity or a practical quantum speed-up. A scalable implementation would require a structured local encoding instead of dense graph matrices.
 
 ## References
 
