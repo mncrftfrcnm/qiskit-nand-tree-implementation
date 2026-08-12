@@ -506,15 +506,12 @@ Important checks include:
 - query/dense agreement;
 - exhaustive finite-profile classification.
 
-GitHub Actions runs the regular tests on supported Python versions, runs the examples, runs Ruff, builds the package, and checks that the built wheel installs correctly.
+GitHub Actions runs the regular tests on supported Python versions, runs the examples, runs Ruff, and runs other code quality checks
 
 ## Limitations
 
-The repository includes calibrated finite profiles for reproducible small
-examples, as well as an opt-in parameterized mode for experiments using a
-fixed \(L=\Theta(\sqrt{N})\) scaling rule. These are finite simulations and
-should not be interpreted as a scalable implementation of the asymptotic
-algorithm.
+The repository includes finite profiles for reproducible small examples, as well as an opt-in parameterized mode for experiments using a
+fixed \(L=\Theta(\sqrt{N})\) scaling rule. These are finite simulations and should not be interpreted as a scalable implementation of the asymptotic algorithm.
 
 
 Several graph evolutions are represented using dense Hamiltonian matrices. Qiskit then compiles those small matrix evolutions into circuits.
