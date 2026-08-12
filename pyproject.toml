@@ -23,8 +23,12 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "build>=1.2",
+  "matplotlib>=3.9",
   "pytest>=8",
   "ruff>=0.9",
+]
+plot = [
+  "matplotlib>=3.9",
 ]
 
 [project.scripts]
