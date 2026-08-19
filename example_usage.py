@@ -15,7 +15,7 @@ def main() -> int:
     print(f"leaves: {leaf_bits}")
     print(f"expected root: {query.expected_value}")
     print(
-        "query statevector: "
+        "query edge simulation: "
         f"root={query.predicted_value}, "
         f"transmission={query.transmission_probability:.6f}, "
         f"oracle calls={query.query_count}"

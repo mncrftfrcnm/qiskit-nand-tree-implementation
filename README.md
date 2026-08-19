@@ -5,6 +5,11 @@
 
 This repository implements finite quantum NAND-tree experiments in Qiskit. It supports calibrated profiles for 2, 4, and 8 leaves, plus an experimental parameterized mode for larger power-of-two inputs.
 
+This sparse-first variant stores walk graphs as SciPy CSR matrices by default.
+Dense storage remains available for small reference comparisons. The default
+query circuit also uses structured two-level edge rotations instead of compiling
+the complete graph Hamiltonian as one arbitrary dense unitary.
+
 
 (I hope I will continue developing this project, implementing the full, endless algorithm.)
 
@@ -91,11 +96,10 @@ non_qiskit/exact_walk.py
 
 ### Custom experiment parameters
 
-For a custom experiment, supply the walk geometry, product-formula step count,
-and decision threshold together:
-
-For scaling experiments, parameters can instead be generated from one fixed
-rule rather than calibrated independently for each tree size:
+Built-in calibrated profiles exist for 2, 4, and 8 leaves. For more than eight
+leaves, provide a custom `NandExperimentConfig` containing the walk geometry,
+product-formula step count, and decision threshold. Parameters can be generated
+from one fixed scaling rule rather than fitted independently for every size:
 
 ```python
 from qiskit_implementation import (
@@ -104,14 +108,18 @@ from qiskit_implementation import (
     theoretical_parameters,
 )
 
-leaves = (1, 0, 1, 1)
+leaves = (0,) * 16
 experiment = NandExperimentConfig(
     walk=theoretical_parameters(len(leaves), gamma=8.0),
     query_steps=16,
     threshold=0.5,
 )
 
-result = evaluate_nand_tree(leaves, experiment=experiment)
+result = evaluate_nand_tree(
+    leaves,
+    experiment=experiment,
+    simulation_backend="edge",  # fast, matrix-free circuit-equivalent simulator
+)
 ```
 
 Here the parameter rule uses
@@ -130,7 +138,12 @@ the runway half-length.
 For scaling comparisons, keep `gamma` and `runway_factor` fixed across tree sizes.
 
 Omitting `experiment` preserves the calibrated finite profiles used by earlier
-versions. Custom configurations require explicit `threshold` and `query_steps` values.
+versions. Custom configurations require explicit `threshold` and `query_steps`
+values, and they are not guaranteed to classify every input until verified.
+
+**Custom configurations above eight leaves still need threshold and step-count
+validation.** Faster simulation makes that validation more practical, but it
+does not supply or prove the correct classifier parameters automatically.
 
 ### Initial packet
 
@@ -202,6 +215,70 @@ approximately equals
 Here `r` is the number of query-walk steps.
 
 The explicit query circuit is compared against this split-Hamiltonian reference on small instances.
+
+### Sparse and dense backends
+
+Walk graphs use sparse storage by default:
+
+```python
+from non_qiskit.graph import build_walk_graph
+
+sparse_graph = build_walk_graph([1, 0, 1, 1])
+dense_graph = build_walk_graph([1, 0, 1, 1], matrix_format="dense")
+```
+
+The exact non-Qiskit evolution and symmetric product formula accept both formats.
+Sparse evolution applies matrix exponentials directly to state vectors with
+`scipy.sparse.linalg.expm_multiply`; it never constructs a dense exponential.
+
+The query circuit has a separate evolution backend:
+
+```python
+from qiskit_implementation.query_walk import build_query_walk_circuit
+
+graph, sparse_circuit = build_query_walk_circuit(
+    [1, 0, 1, 1],
+    evolution_backend="sparse",  # default
+    driver_reps=4,  # calibrated sparse default
+)
+
+_, dense_reference = build_query_walk_circuit(
+    [1, 0, 1, 1],
+    matrix_format="dense",
+    evolution_backend="dense",
+)
+```
+
+The sparse Qiskit backend synthesizes each graph edge as a two-level rotation on
+the binary position register. Oracle leaf edges are disjoint and therefore exact.
+Driver edges share vertices, so their evolution uses a symmetric edge-product
+formula. The default of four inner repetitions preserves the bundled 2- and
+4-leaf classification profiles. Increase `driver_reps` to reduce that additional
+approximation error for other parameters.
+
+Automatic sparse evaluation uses a matrix-free `edge` simulator that applies
+the same ordered rotations directly to the position amplitudes. It avoids
+multi-controlled-gate decomposition and is checked against Qiskit's statevector
+on small instances. Force the complete Qiskit circuit simulator with:
+
+```python
+result = evaluate_nand_tree(
+    [1, 0, 1, 1],
+    simulation_backend="qiskit",
+)
+```
+
+`simulation_backend="auto"` selects `edge` for sparse evolution and `qiskit`
+for dense evolution. This acceleration is a classical simulator of the intended
+circuit; it does not reduce the resources of a circuit executed on hardware.
+
+Methods `exact`, `trotter`, and `suzuki` remain explicit dense-reference paths;
+they materialize padded matrices and are intended only for small graphs.
+
+The phase-estimation probe is also structured and sparse by default. Pass
+`evolution_backend="dense"` to reproduce its former exact-matrix circuit.
+See [SPARSE_BACKENDS.md](SPARSE_BACKENDS.md) for accuracy, scaling, and speed
+tradeoffs.
 
 ## Input oracle
 
@@ -387,6 +464,17 @@ Evaluate an input:
 python main.py evaluate --leaves 1011
 ```
 
+Evaluate more than eight leaves with an explicit, uncalibrated experiment:
+
+```bash
+python main.py evaluate \
+  --leaves 0000000000000000 \
+  --runway 16 --packet 8 --time 4 --steps 16 --threshold 0.5
+```
+
+Use `--simulation-backend qiskit` for the complete statevector circuit instead
+of the fast matrix-free edge simulator.
+
 Evaluate using samples:
 
 ```bash
@@ -399,16 +487,27 @@ Compare the finite reference models:
 python main.py verify --leaf-count 4 --mode both
 ```
 
-Verify the explicit Qiskit evaluator:
+Verify the structured query evaluator with the fast edge simulator:
 
 ```bash
 python main.py qiskit-verify --leaf-count 4
 ```
 
+Force full Qiskit statevector execution with
+`--simulation-backend qiskit`.
+
 Inspect the walk graph:
 
 ```bash
 python main.py graph --leaves 1011 --runway 3
+python main.py graph --leaves 1011 --runway 3 --matrix-format dense
+```
+
+Select the Qiskit evolution backend:
+
+```bash
+python main.py query-walk --leaves 1011 --evolution-backend sparse --driver-reps 4
+python main.py query-walk --leaves 1011 --matrix-format dense --evolution-backend dense
 ```
 
 ## Tests
@@ -435,11 +534,32 @@ The tests validate oracle behavior and cleanup, query counting, Hamiltonian and 
 
 GitHub Actions runs the regular tests, examples, Ruff, and compatibility checks across supported Python versions.
 
+## Remaining scaling barriers
+
+For \(N\) power-of-two leaves and runway half-length \(R\), the query graph has
+\(V=3N+2R\) vertices and the complete Qiskit circuit uses approximately
+
+$$
+q = \left\lceil\log_2(3N+2R)\right\rceil + \log_2 N + 1
+$$
+
+qubits. Qiskit statevector memory therefore grows as `2**q`, even though graph
+storage is sparse. The fast edge simulator stores only the position vector and
+does not allocate the address/value statevector.
+
+The remaining costs are explicit edge enumeration, multi-controlled-gate
+decomposition for actual circuits, product-formula repetitions, the linear-size
+truth-table oracle, and `2**N` exhaustive calibration. Larger custom experiments
+run faster, but their thresholds and step counts are not automatically calibrated.
+
+**Custom configurations above eight leaves still need threshold and step-count
+validation.**
+
 ## Limitations
 
-This repository simulates finite NAND-tree walks and is not a scalable implementation of the asymptotic algorithm. Some graph evolutions use dense Hamiltonian matrices that Qiskit compiles into circuits, causing resource requirements to grow quickly with tree size.
+This repository simulates finite NAND-tree walks and is not yet a fully scalable implementation of the asymptotic algorithm. Sparse graph storage removes the quadratic classical matrix-allocation bottleneck, structured edge evolution avoids full Hamiltonian matrices, and the matrix-free edge simulator accelerates ideal circuit-equivalent validation. Actual Qiskit statevector execution, truth-table oracle construction, multi-controlled edge rotations, and exhaustive profile calibration still limit large instances.
 
-The built-in parameters are empirically calibrated for small graphs. Consequently, the repository's results should not be interpreted as evidence of the theoretical query complexity or a practical quantum speed-up. A scalable implementation would require a structured local encoding instead of dense graph matrices.
+The built-in parameters are empirically calibrated for small graphs. Consequently, the repository's results should not be interpreted as evidence of the theoretical query complexity or a practical quantum speed-up. The dense compatibility paths remain useful only for small-instance validation.
 
 ## References
 

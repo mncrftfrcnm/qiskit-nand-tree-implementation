@@ -45,6 +45,24 @@ python main.py evaluate --leaves 1011 --mode query
 python main.py evaluate --leaves 1011 --mode dense
 ```
 
+Sparse query evaluation uses the fast circuit-equivalent edge simulator by
+default. Execute the complete Qiskit statevector circuit with:
+
+```bash
+python main.py evaluate --leaves 1011 --simulation-backend qiskit
+```
+
+Inputs larger than the built-in 2-, 4-, and 8-leaf profiles need explicit
+experimental parameters:
+
+```bash
+python main.py evaluate \
+  --leaves 0000000000000000 \
+  --runway 16 --packet 8 --time 4 --steps 16 --threshold 0.5
+```
+
+These parameters are uncalibrated until their classification margin is checked.
+
 The query mode exposes the explicit oracle-query count. Dense mode is a small-matrix reference and
 reports zero input-oracle queries.
 
@@ -58,7 +76,7 @@ python main.py evaluate --leaves 10 --confidence 0.99 --seed 17
 The first command fixes the number of samples. The second uses the calibrated separation gap to
 choose a shot count for the requested confidence level.
 
-For a short Python example that compares query-statevector, dense-reference, and sampled results,
+For a short Python example that compares edge-query, dense-reference, and sampled results,
 run:
 
 ```bash
