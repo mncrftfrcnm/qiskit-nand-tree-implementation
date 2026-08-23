@@ -109,4 +109,22 @@ about 181 KiB at 1,024 leaves; three equivalent float64 dense matrices would use
 about 218 MiB. Both figures exclude Python object overhead and the Qiskit
 statevector.
 
+Sparse matrices remove the largest classical allocation, but they do not remove:
+
+- statevector growth in the complete Qiskit register;
+- linear-size truth-table oracle construction;
+- multi-controlled-gate decomposition costs;
+- exponential exhaustive calibration over every input;
+- product-formula steps required for a chosen accuracy.
+
+Built-in calibrated classification remains limited to 2, 4, and 8 leaves.
+Larger inputs require `NandExperimentConfig`; a chosen threshold and step count
+must be validated and do not become calibrated merely because the simulation is
+faster.
+
+**Custom configurations above eight leaves still need threshold and step-count
+validation.**
+
+The next architectural step would be a reversible neighbor oracle and a genuine
+sparse-Hamiltonian block encoding rather than enumerating graph edges in the
 circuit.
