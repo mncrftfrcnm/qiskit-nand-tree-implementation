@@ -123,7 +123,7 @@ def test_example_script_compares_query_dense_and_sampled_modes(capsys):
     assert run_example() == 0
     output = capsys.readouterr().out
 
-    assert "query statevector:" in output
+    assert "query edge simulation:" in output
     assert "dense reference:" in output
     assert "sampled:" in output
 

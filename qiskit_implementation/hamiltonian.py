@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from math import ceil, log2
 from typing import Literal
 
 import numpy as np
+from scipy.sparse import issparse
 
-from non_qiskit.graph import NandWalkGraph
+from non_qiskit.graph import GraphMatrix, NandWalkGraph
 
 from ._imports import qiskit_api
 
@@ -18,22 +18,38 @@ class EncodedHamiltonian:
     graph_size: int
 
 
-def encode_hamiltonian(matrix: np.ndarray) -> EncodedHamiltonian:
-    matrix = np.asarray(matrix, dtype=complex)
+def qubits_for_dimension(dimension: int) -> int:
+    """Return the register width without allocating a padded matrix."""
+
+    if isinstance(dimension, bool) or not isinstance(dimension, int):
+        raise TypeError("dimension must be an integer")
+    if dimension < 1:
+        raise ValueError("dimension must be positive")
+    return max(1, (dimension - 1).bit_length())
+
+
+def dense_matrix(matrix: GraphMatrix) -> np.ndarray:
+    """Materialize a matrix only for the explicit legacy-dense Qiskit path."""
+
+    return np.asarray(matrix.toarray() if issparse(matrix) else matrix, dtype=complex)
+
+
+def encode_hamiltonian(matrix: GraphMatrix) -> EncodedHamiltonian:
+    matrix = dense_matrix(matrix)
     if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
         raise ValueError("Hamiltonian must be square")
     if not np.allclose(matrix, matrix.conj().T):
         raise ValueError("Hamiltonian must be Hermitian")
 
     graph_size = matrix.shape[0]
-    qubits = max(1, ceil(log2(graph_size)))
+    qubits = qubits_for_dimension(graph_size)
     padded = np.zeros((1 << qubits, 1 << qubits), dtype=complex)
     padded[:graph_size, :graph_size] = matrix
     return EncodedHamiltonian(padded, qubits, graph_size)
 
 
 def evolution_gate(
-    matrix: np.ndarray,
+    matrix: GraphMatrix,
     *,
     time: float,
     method: EvolutionMethod = "exact",

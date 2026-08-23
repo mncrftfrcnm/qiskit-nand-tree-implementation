@@ -2,6 +2,8 @@ from dataclasses import dataclass
 
 import numpy as np
 from scipy.linalg import expm
+from scipy.sparse import issparse
+from scipy.sparse.linalg import expm_multiply
 
 from .exact_walk import initial_runway_packet, partition_probabilities
 from .graph import NandWalkGraph
@@ -29,14 +31,22 @@ def symmetric_split_state(
         raise ValueError("steps must be at least one")
 
     dt = time / steps
-    driver = expm(-0.5j * dt * graph.driver_hamiltonian)
-    oracle = expm(-1j * dt * graph.oracle_hamiltonian)
     state = initial_runway_packet(graph, packet_length)
 
-    for _ in range(steps):
-        state = driver @ state
-        state = oracle @ state
-        state = driver @ state
+    if issparse(graph.driver_hamiltonian):
+        driver = (-0.5j * dt) * graph.driver_hamiltonian
+        oracle = (-1j * dt) * graph.oracle_hamiltonian
+        for _ in range(steps):
+            state = expm_multiply(driver, state)
+            state = expm_multiply(oracle, state)
+            state = expm_multiply(driver, state)
+    else:
+        driver = expm(-0.5j * dt * graph.driver_hamiltonian)
+        oracle = expm(-1j * dt * graph.oracle_hamiltonian)
+        for _ in range(steps):
+            state = driver @ state
+            state = oracle @ state
+            state = driver @ state
     return state
 
 

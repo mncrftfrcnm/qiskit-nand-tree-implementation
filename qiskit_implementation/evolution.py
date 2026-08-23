@@ -5,12 +5,18 @@ from typing import Literal
 import numpy as np
 
 from non_qiskit.exact_walk import initial_runway_packet, partition_probabilities
-from non_qiskit.graph import NandWalkGraph, build_walk_graph
+from non_qiskit.graph import MatrixFormat, NandWalkGraph, build_walk_graph
 
 from ._imports import qiskit_api
-from .hamiltonian import encode_hamiltonian, evolution_gate, graph_evolution_gate
+from .edge_evolution import (
+    build_driver_edge_gate,
+    build_edge_evolution_gate,
+    build_oracle_edge_gate,
+)
+from .hamiltonian import evolution_gate, graph_evolution_gate, qubits_for_dimension
 
-CircuitMethod = Literal["exact", "trotter", "suzuki", "alternating", "symmetric"]
+CircuitMethod = Literal["edge", "exact", "trotter", "suzuki", "alternating", "symmetric"]
+EvolutionBackend = Literal["sparse", "dense"]
 
 
 @dataclass(frozen=True)
@@ -28,8 +34,8 @@ class QiskitWalkResult:
 
 
 def encoded_initial_state(graph: NandWalkGraph, packet_length: int) -> np.ndarray:
-    encoded = encode_hamiltonian(graph.hamiltonian)
-    state = np.zeros(1 << encoded.qubits, dtype=complex)
+    position_bits = qubits_for_dimension(graph.size)
+    state = np.zeros(1 << position_bits, dtype=complex)
     state[: graph.size] = initial_runway_packet(graph, packet_length)
     return state
 
@@ -41,13 +47,21 @@ def _append_split_evolution(
     time: float,
     steps: int,
     symmetric: bool,
+    evolution_backend: EvolutionBackend,
+    edge_reps: int,
 ) -> None:
     if steps < 1:
         raise ValueError("steps must be at least one")
     dt = time / steps
     driver_time = dt / 2 if symmetric else dt
-    driver = evolution_gate(graph.driver_hamiltonian, time=driver_time, label="driver")
-    oracle = evolution_gate(graph.oracle_hamiltonian, time=dt, label="oracle")
+    if evolution_backend == "sparse":
+        driver = build_driver_edge_gate(graph, time=driver_time, reps=edge_reps)
+        oracle = build_oracle_edge_gate(graph, time=dt)
+    elif evolution_backend == "dense":
+        driver = evolution_gate(graph.driver_hamiltonian, time=driver_time, label="driver")
+        oracle = evolution_gate(graph.oracle_hamiltonian, time=dt, label="oracle")
+    else:
+        raise ValueError("evolution_backend must be 'sparse' or 'dense'")
 
     for _ in range(steps):
         circuit.append(driver, circuit.qubits)
@@ -61,23 +75,56 @@ def build_evolution_circuit(
     *,
     packet_length: int,
     time: float,
-    method: CircuitMethod = "exact",
+    method: CircuitMethod = "edge",
     reps: int = 1,
+    evolution_backend: EvolutionBackend = "sparse",
+    edge_reps: int = 1,
 ):
     qiskit = qiskit_api()
-    encoded = encode_hamiltonian(graph.hamiltonian)
-    circuit = qiskit.QuantumCircuit(encoded.qubits, name="nand_walk")
+    if edge_reps < 1:
+        raise ValueError("edge_reps must be at least one")
+
+    position_bits = qubits_for_dimension(graph.size)
+    circuit = qiskit.QuantumCircuit(position_bits, name="nand_walk")
     circuit.initialize(encoded_initial_state(graph, packet_length), circuit.qubits)
 
-    if method in ("exact", "trotter", "suzuki"):
+    if method == "edge":
+        circuit.append(
+            build_edge_evolution_gate(
+                graph,
+                graph.edges(),
+                time=time,
+                reps=reps,
+                symmetric=True,
+                name="sparse_full_walk",
+            ),
+            circuit.qubits,
+        )
+    elif method in ("exact", "trotter", "suzuki"):
         circuit.append(
             graph_evolution_gate(graph, time=time, method=method, reps=reps),
             circuit.qubits,
         )
     elif method == "alternating":
-        _append_split_evolution(circuit, graph, time=time, steps=reps, symmetric=False)
+        _append_split_evolution(
+            circuit,
+            graph,
+            time=time,
+            steps=reps,
+            symmetric=False,
+            evolution_backend=evolution_backend,
+            edge_reps=edge_reps,
+        )
     elif method == "symmetric":
-        _append_split_evolution(circuit, graph, time=time, steps=reps, symmetric=True)
+        _append_split_evolution(
+            circuit,
+            graph,
+            time=time,
+            steps=reps,
+            symmetric=True,
+            evolution_backend=evolution_backend,
+            edge_reps=edge_reps,
+        )
     else:
         raise ValueError(f"unknown circuit method: {method}")
     return circuit
@@ -117,17 +164,26 @@ def run_qiskit_walk(
     runway_half_length: int = 6,
     packet_length: int = 4,
     time: float = 2.0,
-    method: CircuitMethod = "exact",
+    method: CircuitMethod = "edge",
     reps: int = 1,
     threshold: float = 0.5,
+    matrix_format: MatrixFormat = "sparse",
+    evolution_backend: EvolutionBackend = "sparse",
+    edge_reps: int = 1,
 ) -> QiskitWalkResult:
-    graph = build_walk_graph(leaves, runway_half_length=runway_half_length)
+    graph = build_walk_graph(
+        leaves,
+        runway_half_length=runway_half_length,
+        matrix_format=matrix_format,
+    )
     circuit = build_evolution_circuit(
         graph,
         packet_length=packet_length,
         time=time,
         method=method,
         reps=reps,
+        evolution_backend=evolution_backend,
+        edge_reps=edge_reps,
     )
     oracle_segments = reps if method in ("alternating", "symmetric") else 0
     return simulate_circuit(

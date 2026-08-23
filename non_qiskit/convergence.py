@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .exact_walk import evolve_state, initial_runway_packet, partition_probabilities
-from .graph import build_walk_graph
+from .graph import MatrixFormat, build_walk_graph
 from .product_formula import symmetric_split_state
 
 
@@ -24,8 +24,13 @@ def product_formula_convergence(
     packet_length: int,
     time: float,
     steps: Iterable[int] = (1, 2, 4, 8, 16),
+    matrix_format: MatrixFormat = "sparse",
 ):
-    graph = build_walk_graph(leaves, runway_half_length=runway_half_length)
+    graph = build_walk_graph(
+        leaves,
+        runway_half_length=runway_half_length,
+        matrix_format=matrix_format,
+    )
     initial = initial_runway_packet(graph, packet_length)
     exact = evolve_state(graph.hamiltonian, initial, time)
     exact_transmission = partition_probabilities(graph, exact)[0]

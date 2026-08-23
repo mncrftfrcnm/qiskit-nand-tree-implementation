@@ -2,6 +2,7 @@ from itertools import product
 
 import numpy as np
 import pytest
+from scipy.sparse import issparse, triu
 
 from non_qiskit.analysis import scaling_report
 from non_qiskit.classical import evaluate_bottom_up, evaluate_short_circuit
@@ -51,10 +52,34 @@ def test_graph_has_expected_edges_and_hamiltonian_split():
     runway_and_root_edges = 2 * runway + 1
     expected_driver_edges = tree_edges + runway_and_root_edges
 
-    assert np.allclose(graph.driver_hamiltonian + graph.oracle_hamiltonian, graph.hamiltonian)
-    assert np.allclose(graph.hamiltonian, graph.hamiltonian.conj().T)
-    assert np.count_nonzero(np.triu(graph.driver_adjacency, 1)) == expected_driver_edges
-    assert np.count_nonzero(np.triu(graph.oracle_adjacency, 1)) == sum(leaves)
+    assert issparse(graph.hamiltonian)
+    split_difference = graph.driver_hamiltonian + graph.oracle_hamiltonian - graph.hamiltonian
+    hermitian_difference = graph.hamiltonian - graph.hamiltonian.conj().T
+    assert split_difference.nnz == 0
+    assert hermitian_difference.nnz == 0
+    assert triu(graph.driver_adjacency, k=1).nnz == expected_driver_edges
+    assert triu(graph.oracle_adjacency, k=1).nnz == sum(leaves)
+
+
+def test_sparse_is_default_and_dense_storage_is_available():
+    sparse = build_walk_graph((1, 0, 1, 1), runway_half_length=3)
+    dense = build_walk_graph(
+        (1, 0, 1, 1),
+        runway_half_length=3,
+        matrix_format="dense",
+    )
+
+    assert sparse.matrix_format == "sparse"
+    assert dense.matrix_format == "dense"
+    assert issparse(sparse.adjacency)
+    assert isinstance(dense.adjacency, np.ndarray)
+    assert np.allclose(sparse.adjacency.toarray(), dense.adjacency)
+    assert sparse.summary()["edges"] == dense.summary()["edges"]
+
+
+def test_graph_rejects_unknown_matrix_format():
+    with pytest.raises(ValueError, match="matrix_format"):
+        build_walk_graph((1, 0), matrix_format="unknown")
 
 
 def test_packet_is_normalized_and_stays_on_left_runway():
@@ -124,10 +149,7 @@ def test_scaling_report_is_consistent_with_profiles():
 def test_packet_matches_runway_formula():
     graph = build_walk_graph((1, 0), runway_half_length=4)
     packet = initial_runway_packet(graph, 4)
-    expected = {
-        position: np.exp(1j * position * np.pi / 2) / 2
-        for position in (-3, -2, -1, 0)
-    }
+    expected = {position: np.exp(1j * position * np.pi / 2) / 2 for position in (-3, -2, -1, 0)}
     for position, amplitude in expected.items():
         assert np.allclose(packet[graph.runway_index(position)], amplitude)
 
@@ -146,4 +168,4 @@ def test_oracle_hamiltonian_matches_input_edges():
 def test_driver_hamiltonian_is_input_independent():
     zero_graph = build_walk_graph((0, 0, 0, 0), runway_half_length=3)
     one_graph = build_walk_graph((1, 1, 1, 1), runway_half_length=3)
-    assert np.array_equal(zero_graph.driver_hamiltonian, one_graph.driver_hamiltonian)
+    assert (zero_graph.driver_hamiltonian - one_graph.driver_hamiltonian).nnz == 0

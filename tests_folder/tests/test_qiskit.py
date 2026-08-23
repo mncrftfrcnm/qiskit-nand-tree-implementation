@@ -126,6 +126,7 @@ def test_phase_probe_has_evaluation_and_system_qubits():
         evaluation_qubits=3,
     )
     encoded = encode_hamiltonian(graph.hamiltonian)
+    assert graph.matrix_format == "sparse"
     assert circuit.num_qubits == 3 + encoded.qubits
 
 
@@ -208,6 +209,8 @@ def test_query_walk_matches_symmetric_split_for_all_two_leaf_inputs():
             packet_length=profile.packet_length,
             time=profile.evolution_time,
             steps=profile.query_steps,
+            matrix_format="dense",
+            evolution_backend="dense",
         )
         split_circuit = build_evolution_circuit(
             graph,
@@ -215,6 +218,7 @@ def test_query_walk_matches_symmetric_split_for_all_two_leaf_inputs():
             time=profile.evolution_time,
             method="symmetric",
             reps=profile.query_steps,
+            evolution_backend="dense",
         )
         query_state = Statevector.from_instruction(query_circuit).data
         position_bits = encode_hamiltonian(graph.hamiltonian).qubits
@@ -303,11 +307,11 @@ def test_qiskit_profile_verifier_passes_two_leaf_inputs():
     assert not result.failed_inputs
 
 
-@pytest.mark.slow
-def test_qiskit_profile_verifier_passes_all_eight_leaf_inputs():
+def test_matrix_free_profile_verifier_passes_all_eight_leaf_inputs():
     result = verify_qiskit_profile(8)
     assert result.passed
     assert result.correct == 256
+    assert result.simulation_backend == "edge"
 
 
 def test_example_usage_runs(capsys):
@@ -316,7 +320,7 @@ def test_example_usage_runs(capsys):
     assert run_example() == 0
     output = capsys.readouterr().out
     assert "expected root:" in output
-    assert "statevector:" in output
+    assert "edge simulation:" in output
     assert "sampled:" in output
 
 

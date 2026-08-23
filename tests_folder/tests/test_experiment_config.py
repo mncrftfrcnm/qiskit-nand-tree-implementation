@@ -31,6 +31,27 @@ def test_custom_experiment_is_used_for_dense_evaluation():
     assert result.query_count == 0
 
 
+def test_custom_experiment_supports_more_than_eight_leaves():
+    leaves = (0,) * 16
+    experiment = NandExperimentConfig(
+        walk=WalkParameters(
+            runway_half_length=2,
+            packet_length=3,
+            evolution_time=0.0,
+        ),
+        query_steps=1,
+        threshold=0.5,
+    )
+
+    result = evaluate_nand_tree(leaves, experiment=experiment)
+
+    assert result.profile is experiment
+    assert result.correct
+    assert result.query_count == 2
+    assert result.walk_result is not None
+    assert result.walk_result.simulation_backend == "edge"
+
+
 def test_profile_and_experiment_are_mutually_exclusive():
     profile = profile_for(2)
     experiment = NandExperimentConfig.from_profile(profile)
@@ -58,9 +79,7 @@ def test_confidence_sampling_requires_a_calibrated_profile():
         (2, True, TypeError),
     ],
 )
-def test_experiment_config_rejects_invalid_classifier_settings(
-    query_steps, threshold, error
-):
+def test_experiment_config_rejects_invalid_classifier_settings(query_steps, threshold, error):
     walk = WalkParameters(runway_half_length=2, packet_length=3, evolution_time=7.8)
 
     with pytest.raises(error):

@@ -4,7 +4,7 @@ from math import ceil, log
 from typing import Literal
 
 from .exact_walk import run_continuous_walk
-from .graph import build_walk_graph
+from .graph import MatrixFormat, build_walk_graph
 from .product_formula import run_symmetric_split
 from .tree import NandTree
 
@@ -107,6 +107,7 @@ def verify_profile(
     profile: AlgorithmProfile,
     *,
     mode: Literal["exact", "query"] = "query",
+    matrix_format: MatrixFormat = "sparse",
 ) -> ProfileVerification:
     zeros: list[float] = []
     ones: list[float] = []
@@ -120,9 +121,14 @@ def verify_profile(
                 runway_half_length=profile.runway_half_length,
                 packet_length=profile.packet_length,
                 time=profile.evolution_time,
+                matrix_format=matrix_format,
             ).transmission_probability
         elif mode == "query":
-            graph = build_walk_graph(leaves, runway_half_length=profile.runway_half_length)
+            graph = build_walk_graph(
+                leaves,
+                runway_half_length=profile.runway_half_length,
+                matrix_format=matrix_format,
+            )
             probability = run_symmetric_split(
                 graph,
                 packet_length=profile.packet_length,

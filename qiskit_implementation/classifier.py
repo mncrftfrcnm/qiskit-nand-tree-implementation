@@ -3,16 +3,23 @@ from dataclasses import dataclass
 from itertools import product
 from typing import Literal
 
+from non_qiskit.graph import MatrixFormat, build_walk_graph
 from non_qiskit.profiles import AlgorithmProfile, SamplingPlan, profile_for, sampling_plan
 from non_qiskit.tree import NandTree
 
 from .evolution import QiskitWalkResult, run_qiskit_walk
 from .query_walk import (
+    EvolutionBackend,
     QueryShotResult,
     QueryWalkResult,
+    SimulationBackend,
     build_query_walk_circuit,
+    resolve_simulation_backend,
+    sample_edge_query_walk,
+    sample_edge_query_walk_adaptive,
     sample_query_walk,
     sample_query_walk_adaptive,
+    simulate_edge_query_walk,
     simulate_query_walk,
 )
 from .walk_parameters import NandExperimentConfig
@@ -55,6 +62,10 @@ def evaluate_nand_tree(
     batch_shots: int = 256,
     profile: AlgorithmProfile | None = None,
     experiment: NandExperimentConfig | None = None,
+    matrix_format: MatrixFormat = "sparse",
+    evolution_backend: EvolutionBackend = "sparse",
+    simulation_backend: SimulationBackend = "auto",
+    driver_reps: int = 4,
 ) -> NandEvaluation:
     tree = NandTree(leaves)
     if profile is not None and experiment is not None:
@@ -83,6 +94,7 @@ def evaluate_nand_tree(
             time=experiment.walk.evolution_time,
             method="exact",
             threshold=experiment.threshold,
+            matrix_format=matrix_format,
         )
         return NandEvaluation(
             leaves=tree.leaves,
@@ -100,20 +112,58 @@ def evaluate_nand_tree(
     if mode != "query":
         raise ValueError(f"unknown evaluation mode: {mode}")
 
-    graph, circuit = build_query_walk_circuit(
-        tree.leaves,
-        runway_half_length=experiment.walk.runway_half_length,
-        packet_length=experiment.walk.packet_length,
-        time=experiment.walk.evolution_time,
-        steps=experiment.query_steps,
-    )
-
     plan = None
     if confidence is not None:
         if isinstance(configuration, NandExperimentConfig):
             raise ValueError("confidence sampling requires a calibrated profile")
         plan = sampling_plan(profile, confidence=confidence, mode="query")
         shots = plan.shots
+
+    resolved_simulator = resolve_simulation_backend(simulation_backend, evolution_backend)
+    if resolved_simulator == "edge":
+        graph = build_walk_graph(
+            tree.leaves,
+            runway_half_length=experiment.walk.runway_half_length,
+            matrix_format=matrix_format,
+        )
+        result = simulate_edge_query_walk(
+            graph,
+            packet_length=experiment.walk.packet_length,
+            time=experiment.walk.evolution_time,
+            steps=experiment.query_steps,
+            threshold=experiment.threshold,
+            driver_reps=driver_reps,
+        )
+        if adaptive:
+            sampled = sample_edge_query_walk_adaptive(
+                result,
+                threshold=experiment.threshold,
+                min_shots=min_shots,
+                max_shots=max_shots,
+                batch_shots=batch_shots,
+                seed=seed,
+            )
+            return _sampled_evaluation(tree, configuration, sampled, plan)
+        if shots is not None:
+            sampled = sample_edge_query_walk(
+                result,
+                threshold=experiment.threshold,
+                shots=shots,
+                seed=seed,
+            )
+            return _sampled_evaluation(tree, configuration, sampled, plan)
+        return _walk_evaluation(tree, configuration, result)
+
+    graph, circuit = build_query_walk_circuit(
+        tree.leaves,
+        runway_half_length=experiment.walk.runway_half_length,
+        packet_length=experiment.walk.packet_length,
+        time=experiment.walk.evolution_time,
+        steps=experiment.query_steps,
+        matrix_format=matrix_format,
+        evolution_backend=evolution_backend,
+        driver_reps=driver_reps,
+    )
 
     if adaptive:
         sampled = sample_query_walk_adaptive(
@@ -145,13 +195,21 @@ def evaluate_nand_tree(
         steps=experiment.query_steps,
         threshold=experiment.threshold,
     )
+    return _walk_evaluation(tree, configuration, result)
+
+
+def _walk_evaluation(
+    tree: NandTree,
+    profile: AlgorithmProfile | NandExperimentConfig,
+    result: QueryWalkResult,
+) -> NandEvaluation:
     return NandEvaluation(
         leaves=tree.leaves,
         expected_value=tree.root_value,
         predicted_value=result.predicted_value,
         correct=result.predicted_value == tree.root_value,
-        mode=mode,
-        profile=configuration,
+        mode="query",
+        profile=profile,
         transmission_probability=result.transmission_probability,
         query_count=result.query_count,
         shot_result=None,
@@ -191,6 +249,7 @@ class QiskitVerification:
     separation_margin: float
     failed_inputs: tuple[str, ...]
     shots: int | None
+    simulation_backend: str
 
     @property
     def passed(self) -> bool:
@@ -202,6 +261,10 @@ def verify_qiskit_profile(
     *,
     shots: int | None = None,
     seed: int | None = None,
+    matrix_format: MatrixFormat = "sparse",
+    evolution_backend: EvolutionBackend = "sparse",
+    simulation_backend: SimulationBackend = "auto",
+    driver_reps: int = 4,
 ) -> QiskitVerification:
     profile = profile_for(leaf_count)
     zeros: list[float] = []
@@ -215,6 +278,10 @@ def verify_qiskit_profile(
             shots=shots,
             seed=None if seed is None else seed + index,
             profile=profile,
+            matrix_format=matrix_format,
+            evolution_backend=evolution_backend,
+            simulation_backend=simulation_backend,
+            driver_reps=driver_reps,
         )
         (ones if result.expected_value else zeros).append(result.transmission_probability)
         correct += int(result.correct)
@@ -234,4 +301,8 @@ def verify_qiskit_profile(
         separation_margin=smallest_one - largest_zero,
         failed_inputs=tuple(failed),
         shots=shots,
+        simulation_backend=resolve_simulation_backend(
+            simulation_backend,
+            evolution_backend,
+        ),
     )
