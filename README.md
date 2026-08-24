@@ -382,7 +382,7 @@ Install the project and development dependencies with:
 python -m pip install -e ".[dev]"
 ```
 
-The project currently targets Python 3.10+ and Qiskit 2.4 - 2.5.
+The project currently targets Python 3.10+ and Qiskit >=2.4,<3.
 
 ## API
 
