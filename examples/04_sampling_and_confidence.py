@@ -17,10 +17,11 @@ def _summary(label: str, result) -> None:
 
 def main() -> None:
     leaves = (1, 0)
-    fixed = evaluate_nand_tree(leaves, shots=256, seed=7)
-    confidence = evaluate_nand_tree(leaves, confidence=0.99, seed=7)
+    fixed = evaluate_nand_tree(leaves, mode="query", shots=256, seed=7)
+    confidence = evaluate_nand_tree(leaves, mode="query", confidence=0.99, seed=7)
     adaptive = evaluate_nand_tree(
         leaves,
+        mode="query",
         adaptive=True,
         min_shots=128,
         max_shots=1024,

@@ -14,7 +14,7 @@ def main() -> None:
         query_steps=2,
         threshold=0.37,
     )
-    result = evaluate_nand_tree(leaves, experiment=experiment)
+    result = evaluate_nand_tree(leaves, mode="query", experiment=experiment)
 
     print("Custom finite experiment")
     print("configuration:", experiment)

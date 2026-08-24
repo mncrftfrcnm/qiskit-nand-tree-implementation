@@ -35,17 +35,25 @@ def test_top_level_api_is_intentional():
 def test_evaluator_uses_evaluate_name_and_keeps_legacy_alias():
     evaluator = qni.QuantumNandEvaluator((1, 0))
     result = evaluator.evaluate()
+    query = evaluator.evaluate(mode="query")
     legacy = evaluator.automatic()
 
     assert result.correct
+    assert result.mode == "dense"
+    assert isinstance(result.walk_result, evolution.QiskitWalkResult)
+    assert isinstance(query.walk_result, query_walk.QueryWalkResult)
     assert legacy.predicted_value == result.predicted_value
     assert legacy.transmission_probability == result.transmission_probability
 
 
 def test_nand_evaluation_exposes_underlying_walk_result():
-    query = qni.evaluate_nand_tree((1, 0))
-    qiskit_query = qni.evaluate_nand_tree((1, 0), simulation_backend="qiskit")
-    dense = qni.evaluate_nand_tree((1, 0), mode="dense")
+    dense = qni.evaluate_nand_tree((1, 0))
+    query = qni.evaluate_nand_tree((1, 0), mode="query")
+    qiskit_query = qni.evaluate_nand_tree(
+        (1, 0),
+        mode="query",
+        simulation_backend="qiskit",
+    )
 
     assert isinstance(query.walk_result, query_walk.QueryWalkResult)
     assert isinstance(qiskit_query.walk_result, query_walk.QueryWalkResult)

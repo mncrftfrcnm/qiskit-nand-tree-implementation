@@ -567,7 +567,7 @@ def test_evaluator_rejects_conflicting_or_invalid_options():
     with pytest.raises(ValueError):
         evaluate_nand_tree((1, 0), shots=10, confidence=0.9)
     with pytest.raises(ValueError):
-        evaluate_nand_tree((1, 0), shots=10, mode="dense")
+        evaluate_nand_tree((1, 0), shots=10)
     with pytest.raises(ValueError):
         evaluate_nand_tree((1, 0), mode="unknown")
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from non_qiskit.graph import MatrixFormat
 from non_qiskit.tree import NandTree
 
-from .classifier import NandEvaluation, evaluate_nand_tree
+from .classifier import EvaluationMode, NandEvaluation, evaluate_nand_tree
 from .evolution import CircuitMethod, QiskitWalkResult, run_qiskit_walk
 from .phase_probe import PhaseProbeResult, run_phase_probe
 from .query_walk import EvolutionBackend, QueryWalkResult, SimulationBackend, run_query_walk
@@ -44,12 +44,13 @@ class QuantumNandEvaluator:
     def evaluate(
         self,
         *,
+        mode: EvaluationMode = "dense",
         shots: int | None = None,
         seed: int | None = None,
     ) -> NandEvaluation:
         return evaluate_nand_tree(
             self.leaves,
-            mode="query",
+            mode=mode,
             shots=shots,
             seed=seed,
             matrix_format=self.matrix_format,

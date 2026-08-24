@@ -243,9 +243,9 @@ def test_query_walk_counts_calls_and_cleans_workspace():
 
 
 @pytest.mark.parametrize("leaf_count", [2, 4])
-def test_automatic_query_evaluator_classifies_all_fast_inputs(leaf_count):
+def test_explicit_query_evaluator_classifies_all_fast_inputs(leaf_count):
     for leaves in product((0, 1), repeat=leaf_count):
-        result = evaluate_nand_tree(leaves)
+        result = evaluate_nand_tree(leaves, mode="query")
         assert result.correct
         assert result.query_count == 2 * profile_for(leaf_count).query_steps
 
@@ -277,7 +277,7 @@ def test_count_summary_excludes_dirty_workspace_from_decision():
 
 
 def test_confidence_bound_selects_shot_count():
-    result = evaluate_nand_tree((1, 0), confidence=0.99, seed=7)
+    result = evaluate_nand_tree((1, 0), mode="query", confidence=0.99, seed=7)
     assert result.sampling_plan is not None
     assert result.shot_result is not None
     assert result.shot_result.shots == result.sampling_plan.shots == 60
@@ -288,6 +288,7 @@ def test_adaptive_sampling_reaches_stable_decision():
     for leaves in ((1, 0), (1, 1)):
         result = evaluate_nand_tree(
             leaves,
+            mode="query",
             adaptive=True,
             min_shots=256,
             max_shots=2048,

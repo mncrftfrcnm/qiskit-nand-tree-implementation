@@ -52,7 +52,7 @@ class NandEvaluation:
 def evaluate_nand_tree(
     leaves: Iterable[int],
     *,
-    mode: EvaluationMode = "query",
+    mode: EvaluationMode = "dense",
     shots: int | None = None,
     seed: int | None = None,
     confidence: float | None = None,
@@ -67,6 +67,12 @@ def evaluate_nand_tree(
     simulation_backend: SimulationBackend = "auto",
     driver_reps: int = 4,
 ) -> NandEvaluation:
+    """Evaluate a NAND tree, using the exact dense reference by default.
+
+    Select ``mode="query"`` for the faster sparse/query implementation and for
+    every finite-shot sampling mode.
+    """
+
     tree = NandTree(leaves)
     if profile is not None and experiment is not None:
         raise ValueError("choose either profile or experiment, not both")
@@ -275,6 +281,7 @@ def verify_qiskit_profile(
     for index, leaves in enumerate(product((0, 1), repeat=leaf_count)):
         result = evaluate_nand_tree(
             leaves,
+            mode="query",
             shots=shots,
             seed=None if seed is None else seed + index,
             profile=profile,

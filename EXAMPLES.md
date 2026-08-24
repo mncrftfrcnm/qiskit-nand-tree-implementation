@@ -45,11 +45,11 @@ python main.py evaluate --leaves 1011 --mode query
 python main.py evaluate --leaves 1011 --mode dense
 ```
 
-Sparse query evaluation uses the fast circuit-equivalent edge simulator by
-default. Execute the complete Qiskit statevector circuit with:
+When query mode is selected, sparse evaluation uses the fast circuit-equivalent
+edge simulator by default. Execute the complete Qiskit statevector circuit with:
 
 ```bash
-python main.py evaluate --leaves 1011 --simulation-backend qiskit
+python main.py evaluate --leaves 1011 --mode query --simulation-backend qiskit
 ```
 
 Inputs larger than the built-in 2-, 4-, and 8-leaf profiles need explicit
@@ -58,6 +58,7 @@ experimental parameters:
 ```bash
 python main.py evaluate \
   --leaves 0000000000000000 \
+  --mode query \
   --runway 16 --packet 8 --time 4 --steps 16 --threshold 0.5
 ```
 
@@ -69,8 +70,8 @@ reports zero input-oracle queries.
 ## Look at finite-shot behavior
 
 ```bash
-python main.py evaluate --leaves 10 --shots 512 --seed 17
-python main.py evaluate --leaves 10 --confidence 0.99 --seed 17
+python main.py evaluate --leaves 10 --mode query --shots 512 --seed 17
+python main.py evaluate --leaves 10 --mode query --confidence 0.99 --seed 17
 ```
 
 The first command fixes the number of samples. The second uses the calibrated separation gap to

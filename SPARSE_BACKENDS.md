@@ -1,14 +1,16 @@
-# Sparse-first backend notes
+# Dense-default and sparse backend notes
 
 ## Defaults
 
+- `evaluate_nand_tree(...)` uses exact dense finite-Hamiltonian reference mode.
+- `evaluate_nand_tree(..., mode="query")` selects the faster sparse/query path.
 - `build_walk_graph(..., matrix_format="sparse")` stores adjacency matrices as CSR.
 - Non-Qiskit exact evolution uses sparse `expm_multiply`.
 - Non-Qiskit split evolution applies sparse exponentials directly to state vectors.
 - `build_query_walk_circuit(..., evolution_backend="sparse")` uses structured edge rotations.
 - `build_evolution_circuit(..., method="edge")` is the sparse full-walk circuit mode.
 - `build_phase_probe_circuit(..., evolution_backend="sparse")` uses controlled edge rotations.
-- `evaluate_nand_tree(..., simulation_backend="auto")` uses the matrix-free edge simulator.
+- Query mode with `simulation_backend="auto"` uses the matrix-free edge simulator.
 
 ## Dense compatibility
 
@@ -24,8 +26,9 @@ build_query_walk_circuit(
 build_evolution_circuit(graph, method="exact")
 ```
 
-The dense Qiskit path pads a Hamiltonian to a power-of-two dimension and should
-only be used for small reference comparisons.
+The dense Qiskit path pads a Hamiltonian to a power-of-two dimension. It is the
+high-level evaluation default, but should only be used for small reference
+comparisons because its memory grows quadratically before statevector execution.
 
 ## Accuracy distinction
 
@@ -35,11 +38,16 @@ the exact non-Qiskit result, up to floating-point tolerance.
 Structured Qiskit driver evolution introduces an additional product formula over
 individual edges because driver edges do not all commute. `driver_reps` controls
 this approximation in the query circuit; its sparse default is four, which passes
-the bundled 2- and 4-leaf classifier profiles. `reps` controls the edge formula in
+the bundled 2-, 4-, and 8-leaf classifier profiles. `reps` controls the edge formula in
 the full `method="edge"` circuit.
 
 Oracle leaf edges are pairwise disjoint, so their structured edge evolution is
 exact for each oracle segment.
+
+The sparse deterministic classifier is therefore validated for the bundled
+profiles, but it is not an exact full-Hamiltonian evolution for arbitrary custom
+parameters. Finite-shot sampling is probabilistic regardless of whether a dense
+or sparse circuit produced the underlying state.
 
 ## Fast simulation versus Qiskit execution
 
@@ -49,8 +57,8 @@ rotations and present oracle edges directly to the position vector. Small-tree
 tests compare its complete state against Qiskit's statevector.
 
 ```python
-evaluate_nand_tree(leaves)  # auto -> edge for sparse evolution
-evaluate_nand_tree(leaves, simulation_backend="qiskit")
+evaluate_nand_tree(leaves, mode="query")  # auto -> fast edge simulator
+evaluate_nand_tree(leaves, mode="query", simulation_backend="qiskit")
 ```
 
 The first path is fast and matrix-free. The second executes the actual Qiskit
@@ -98,7 +106,7 @@ structured edge rotations before multi-controlled-gate decomposition. The
 matrix-free simulator performs these rotations in linear memory, but the real
 Qiskit circuit still pays their gate cost.
 
-Sparse-first is primarily a memory and construction-scaling improvement, not an
+The sparse backend is primarily a memory and construction-scaling improvement, not an
 unconditional wall-clock speedup. Small dense `HamiltonianGate` simulations can
 still be faster than simulating many decomposed controlled rotations. The sparse
 backend becomes useful when dense matrix allocation or unitary synthesis is the

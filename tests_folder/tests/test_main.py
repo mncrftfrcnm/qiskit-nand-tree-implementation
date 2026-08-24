@@ -63,6 +63,8 @@ def test_evaluate_command_accepts_a_custom_sixteen_leaf_experiment(capsys):
                 "evaluate",
                 "--leaves",
                 "0" * 16,
+                "--mode",
+                "query",
                 "--runway",
                 "2",
                 "--packet",
@@ -81,6 +83,13 @@ def test_evaluate_command_accepts_a_custom_sixteen_leaf_experiment(capsys):
     assert '"correct": true' in output
     assert '"query_steps": 1' in output
     assert '"simulation_backend": "edge"' in output
+
+
+def test_evaluate_command_uses_dense_mode_by_default(capsys):
+    assert main(["evaluate", "--leaves", "10"]) == 0
+    output = capsys.readouterr().out
+    assert '"mode": "dense"' in output
+    assert '"query_count": 0' in output
 
 
 def test_custom_evaluate_options_must_be_complete():

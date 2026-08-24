@@ -89,7 +89,12 @@ def parser() -> argparse.ArgumentParser:
 
     evaluate = commands.add_parser("evaluate")
     evaluate.add_argument("--leaves", type=parse_leaves, required=True)
-    evaluate.add_argument("--mode", choices=("query", "dense"), default="query")
+    evaluate.add_argument(
+        "--mode",
+        choices=("query", "dense"),
+        default="dense",
+        help="dense is the exact small-matrix default; query selects the faster sparse path",
+    )
     evaluate.add_argument("--shots", type=int)
     evaluate.add_argument("--confidence", type=float)
     evaluate.add_argument("--adaptive", action="store_true")

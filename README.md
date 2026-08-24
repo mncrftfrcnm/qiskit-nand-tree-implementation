@@ -117,6 +117,7 @@ experiment = NandExperimentConfig(
 
 result = evaluate_nand_tree(
     leaves,
+    mode="query",
     experiment=experiment,
     simulation_backend="edge",  # fast, matrix-free circuit-equivalent simulator
 )
@@ -252,11 +253,11 @@ _, dense_reference = build_query_walk_circuit(
 The sparse Qiskit backend synthesizes each graph edge as a two-level rotation on
 the binary position register. Oracle leaf edges are disjoint and therefore exact.
 Driver edges share vertices, so their evolution uses a symmetric edge-product
-formula. The default of four inner repetitions preserves the bundled 2- and
-4-leaf classification profiles. Increase `driver_reps` to reduce that additional
+formula. The default of four inner repetitions preserves the bundled 2-, 4-, and
+8-leaf classification profiles. Increase `driver_reps` to reduce that additional
 approximation error for other parameters.
 
-Automatic sparse evaluation uses a matrix-free `edge` simulator that applies
+Explicit query evaluation uses a matrix-free `edge` simulator by default that applies
 the same ordered rotations directly to the position amplitudes. It avoids
 multi-controlled-gate decomposition and is checked against Qiskit's statevector
 on small instances. Force the complete Qiskit circuit simulator with:
@@ -264,6 +265,7 @@ on small instances. Force the complete Qiskit circuit simulator with:
 ```python
 result = evaluate_nand_tree(
     [1, 0, 1, 1],
+    mode="query",
     simulation_backend="qiskit",
 )
 ```
@@ -382,11 +384,12 @@ Install the project and development dependencies with:
 python -m pip install -e ".[dev]"
 ```
 
-The project currently targets Python 3.10+ and Qiskit >=2.4,<3.
+The project currently targets Python 3.10+ and Qiskit `>=2.4,<3`.
 
 ## API
 
-The normal Python entry point is:
+The high-level Python entry point uses the exact dense finite-Hamiltonian
+reference by default:
 
 ```python
 from qiskit_implementation import evaluate_nand_tree
@@ -399,25 +402,34 @@ print("transmission:", result.transmission_probability)
 print("oracle queries:", result.query_count)
 ```
 
-Dense finite-Hamiltonian reference mode is also available:
+Dense mode materializes a padded full Hamiltonian and is intended only for small
+reference problems. It reports zero input-oracle queries. Select query mode
+explicitly for the much faster, linear-memory sparse simulator:
 
 ```python
 from qiskit_implementation import evaluate_nand_tree
 
 result = evaluate_nand_tree(
     [1, 0, 1, 1],
-    mode="dense",
+    mode="query",
 )
 
 print(result.predicted_value)
 print(result.transmission_probability)
 ```
 
+The sparse query implementation includes an additional driver-edge product
+formula. Its deterministic classifier passes exhaustive validation for the
+built-in 2-, 4-, and 8-leaf profiles, but custom parameters and larger trees do
+not inherit that guarantee. Finite-shot results are probabilistic in any quantum
+execution mode.
+
 For finite-shot sampling:
 
 ```python
 sampled = evaluate_nand_tree(
     [1, 0, 1, 1],
+    mode="query",
     shots=4096,
     seed=7,
 )
@@ -434,6 +446,7 @@ from qiskit_implementation import QuantumNandEvaluator
 evaluator = QuantumNandEvaluator([1, 0, 1, 1])
 
 result = evaluator.evaluate()
+query_result = evaluator.evaluate(mode="query")
 
 print(result.predicted_value)
 ```
@@ -458,10 +471,16 @@ Run the standalone example:
 python example_usage.py
 ```
 
-Evaluate an input:
+Evaluate an input with the default dense reference:
 
 ```bash
 python main.py evaluate --leaves 1011
+```
+
+Use the faster sparse/query implementation explicitly:
+
+```bash
+python main.py evaluate --leaves 1011 --mode query
 ```
 
 Evaluate more than eight leaves with an explicit, uncalibrated experiment:
@@ -469,6 +488,7 @@ Evaluate more than eight leaves with an explicit, uncalibrated experiment:
 ```bash
 python main.py evaluate \
   --leaves 0000000000000000 \
+  --mode query \
   --runway 16 --packet 8 --time 4 --steps 16 --threshold 0.5
 ```
 
@@ -478,7 +498,7 @@ of the fast matrix-free edge simulator.
 Evaluate using samples:
 
 ```bash
-python main.py evaluate --leaves 1011 --shots 4096 --seed 7
+python main.py evaluate --leaves 1011 --mode query --shots 4096 --seed 7
 ```
 
 Compare the finite reference models:

@@ -8,6 +8,7 @@ def main() -> None:
     result = evaluate_nand_tree(leaves)
 
     print("Basic calibrated evaluation")
+    print("mode:", result.mode)
     print("leaves:", "".join(map(str, leaves)))
     print("expected root:", result.expected_value)
     print("predicted root:", result.predicted_value)
