@@ -4,7 +4,13 @@ from itertools import product
 from typing import Literal
 
 from non_qiskit.graph import MatrixFormat, build_walk_graph
-from non_qiskit.profiles import AlgorithmProfile, SamplingPlan, profile_for, sampling_plan
+from non_qiskit.profiles import (
+    AlgorithmProfile,
+    SamplingPlan,
+    profile_for,
+    sampling_plan,
+    sparse_query_sampling_plan,
+)
 from non_qiskit.tree import NandTree
 
 from .evolution import QiskitWalkResult, run_qiskit_walk
@@ -122,7 +128,14 @@ def evaluate_nand_tree(
     if confidence is not None:
         if isinstance(configuration, NandExperimentConfig):
             raise ValueError("confidence sampling requires a calibrated profile")
-        plan = sampling_plan(profile, confidence=confidence, mode="query")
+        if evolution_backend == "sparse":
+            plan = sparse_query_sampling_plan(
+                profile,
+                confidence=confidence,
+                driver_reps=driver_reps,
+            )
+        else:
+            plan = sampling_plan(profile, confidence=confidence, mode="query")
         shots = plan.shots
 
     resolved_simulator = resolve_simulation_backend(simulation_backend, evolution_backend)

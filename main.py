@@ -253,15 +253,19 @@ def run_demo() -> int:
     from qiskit_implementation.classifier import evaluate_nand_tree
 
     leaves = (1, 0)
-    result = evaluate_nand_tree(leaves)
+    dense = evaluate_nand_tree(leaves)
+    query = evaluate_nand_tree(leaves, mode="query")
 
     print("Qiskit NAND-tree example")
     print(f"leaves: {''.join(str(bit) for bit in leaves)}")
-    print(f"expected root: {result.expected_value}")
-    print(f"measured root: {result.predicted_value}")
-    print(f"transmission probability: {result.transmission_probability:.6f}")
-    print(f"oracle calls: {result.query_count}")
-    return 0 if result.correct else 1
+    print(f"expected root: {dense.expected_value}")
+    for result in (dense, query):
+        print(
+            f"{result.mode}: root={result.predicted_value}, "
+            f"transmission={result.transmission_probability:.6f}, "
+            f"oracle calls={result.query_count}"
+        )
+    return 0 if dense.correct and query.correct else 1
 
 
 def main(argv: Sequence[str] | None = None) -> int:

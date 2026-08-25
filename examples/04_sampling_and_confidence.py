@@ -17,6 +17,8 @@ def _summary(label: str, result) -> None:
 
 def main() -> None:
     leaves = (1, 0)
+    dense = evaluate_nand_tree(leaves, mode="dense")
+    query = evaluate_nand_tree(leaves, mode="query")
     fixed = evaluate_nand_tree(leaves, mode="query", shots=256, seed=7)
     confidence = evaluate_nand_tree(leaves, mode="query", confidence=0.99, seed=7)
     adaptive = evaluate_nand_tree(
@@ -30,10 +32,12 @@ def main() -> None:
     )
 
     print("Sampling modes")
+    print("deterministic dense/query roots:", dense.predicted_value, query.predicted_value)
     _summary("fixed shots", fixed)
     _summary("confidence-derived shots", confidence)
     _summary("adaptive shots", adaptive)
 
+    assert dense.correct and query.correct
     assert fixed.correct and confidence.correct and adaptive.correct
     print("Example completed successfully.")
 

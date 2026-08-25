@@ -1,138 +1,104 @@
-# Dense-default and sparse backend notes
+# Dense and sparse backends
 
-## Defaults
+This file records the backend choices without repeating the algorithm overview
+from the README.
 
-- `evaluate_nand_tree(...)` uses exact dense finite-Hamiltonian reference mode.
-- `evaluate_nand_tree(..., mode="query")` selects the faster sparse/query path.
-- `build_walk_graph(..., matrix_format="sparse")` stores adjacency matrices as CSR.
-- Non-Qiskit exact evolution uses sparse `expm_multiply`.
-- Non-Qiskit split evolution applies sparse exponentials directly to state vectors.
-- `build_query_walk_circuit(..., evolution_backend="sparse")` uses structured edge rotations.
-- `build_evolution_circuit(..., method="edge")` is the sparse full-walk circuit mode.
-- `build_phase_probe_circuit(..., evolution_backend="sparse")` uses controlled edge rotations.
-- Query mode with `simulation_backend="auto"` uses the matrix-free edge simulator.
+## What the defaults mean
 
-## Dense compatibility
+- `evaluate_nand_tree(...)` uses the dense full-Hamiltonian reference.
+- `evaluate_nand_tree(..., mode="query")` uses the explicit query algorithm.
+- Graph matrices use SciPy CSR storage unless `matrix_format="dense"` is set.
+- Sparse query evaluation uses the matrix-free edge simulator when
+  `simulation_backend="auto"`.
+- `simulation_backend="qiskit"` runs the complete Qiskit statevector circuit.
 
-Dense behavior remains available with:
+These switches are independent. Sparse graph storage does not by itself mean
+that the high-level query algorithm was selected.
+
+## Numerical differences
+
+Changing an exact non-Qiskit graph from dense storage to CSR changes only the
+storage format. Results agree within floating-point tolerance.
+
+The structured query circuit is different. It applies individual driver-edge
+rotations because compiling one full Hamiltonian unitary does not scale. Driver
+edges share vertices, so the ordered edge formula is approximate. `driver_reps`
+controls that approximation; the default is four. Oracle leaf edges are
+disjoint, so each oracle segment is exact.
+
+The deterministic query classifier passes exhaustive checks on the bundled 2-,
+4-, and 8-leaf profiles. Custom walk parameters still need calibration. Finite
+shots are probabilistic regardless of how the underlying state was calculated.
+The confidence planner stores separate threshold gaps for the sparse backend at
+`driver_reps=4`; other sparse configurations are rejected until calibrated.
+
+## Edge simulator and Qiskit
 
 ```python
-build_walk_graph(leaves, matrix_format="dense")
-build_query_walk_circuit(
+evaluate_nand_tree(leaves, mode="query")
+evaluate_nand_tree(
     leaves,
-    matrix_format="dense",
-    evolution_backend="dense",
+    mode="query",
+    simulation_backend="qiskit",
 )
-build_evolution_circuit(graph, method="exact")
 ```
 
-The dense Qiskit path pads a Hamiltonian to a power-of-two dimension. It is the
-high-level evaluation default, but should only be used for small reference
-comparisons because its memory grows quadratically before statevector execution.
+The first call applies the circuit's ordered two-level rotations directly to the
+position vector. The second constructs and simulates the full register-level
+circuit. Small-tree tests compare the two complete states.
 
-## Accuracy distinction
+The edge path is useful for development and calibration. It is not a hardware
+speedup and does not remove the gates from the circuit definition.
 
-Changing graph storage from dense to sparse does not change the Hamiltonian or
-the exact non-Qiskit result, up to floating-point tolerance.
+One development-machine run gave the following end-to-end times for a single
+calibrated input:
 
-Structured Qiskit driver evolution introduces an additional product formula over
-individual edges because driver edges do not all commute. `driver_reps` controls
-this approximation in the query circuit; its sparse default is four, which passes
-the bundled 2-, 4-, and 8-leaf classifier profiles. `reps` controls the edge formula in
-the full `method="edge"` circuit.
+| Leaves | Edge simulator | Qiskit statevector |
+|---:|---:|---:|
+| 2 | 0.0015 s | 0.364 s |
+| 4 | 0.0022 s | 0.992 s |
+| 8 | 0.0043 s | 24.56 s |
 
-Oracle leaf edges are pairwise disjoint, so their structured edge evolution is
-exact for each oracle segment.
+The probability differences were between `1e-15` and `3e-11`. These are rough
+measurements, not benchmarks; hardware and dependency versions matter.
 
-The sparse deterministic classifier is therefore validated for the bundled
-profiles, but it is not an exact full-Hamiltonian evolution for arbitrary custom
-parameters. Finite-shot sampling is probabilistic regardless of whether a dense
-or sparse circuit produced the underlying state.
+## Memory and gate growth
 
-## Fast simulation versus Qiskit execution
-
-The sparse query block uncomputes its address and value registers after every
-step. The `edge` simulator therefore applies the same ordered two-level driver
-rotations and present oracle edges directly to the position vector. Small-tree
-tests compare its complete state against Qiskit's statevector.
-
-```python
-evaluate_nand_tree(leaves, mode="query")  # auto -> fast edge simulator
-evaluate_nand_tree(leaves, mode="query", simulation_backend="qiskit")
-```
-
-The first path is fast and matrix-free. The second executes the actual Qiskit
-circuit and remains the circuit-level validation path. The edge simulator does
-not claim a hardware speedup.
-
-On the development environment, one calibrated input produced these indicative
-end-to-end timings:
-
-| Leaves | Edge simulator | Qiskit statevector | Speedup |
-| ---: | ---: | ---: | ---: |
-| 2 | 0.0015 s | 0.364 s | 244x |
-| 4 | 0.0022 s | 0.992 s | 460x |
-| 8 | 0.0043 s | 24.56 s | 5,706x |
-
-The transmission-probability differences were between `1e-15` and `3e-11`.
-Exhaustive matrix-free verification of all 256 eight-leaf inputs completed in
-about one second. Timings depend on hardware and installed Qiskit/SciPy versions.
-
-## Remaining scaling limits
-
-For `N` power-of-two leaves and runway half-length `R`, the graph has
+For `N` leaves and runway half-length `R`, the graph has
 
 $$
-V = 3N + 2R
+V=3N+2R
 $$
 
-vertices. The complete query circuit uses approximately
+vertices. The full query circuit needs approximately
 
 $$
-q = \left\lceil\log_2(3N+2R)\right\rceil + \log_2 N + 1
+q=\left\lceil\log_2(3N+2R)\right\rceil+\log_2N+1
 $$
 
-qubits: a binary position register, a leaf-address register, and one oracle
-value qubit. A Qiskit statevector therefore stores `2**q` complex amplitudes.
+qubits. Qiskit statevector memory is therefore proportional to `2**q`.
 
-The driver contains `E_D = 2N + 2R - 1` edges. With `d=driver_reps`, one query
-step contains approximately
+The fixed driver has `2N + 2R - 1` edges. With `d=driver_reps`, one query step
+contains roughly
 
 $$
-4dE_D + N
+4d(2N+2R-1)+N
 $$
 
-structured edge rotations before multi-controlled-gate decomposition. The
-matrix-free simulator performs these rotations in linear memory, but the real
-Qiskit circuit still pays their gate cost.
-
-The sparse backend is primarily a memory and construction-scaling improvement, not an
-unconditional wall-clock speedup. Small dense `HamiltonianGate` simulations can
-still be faster than simulating many decomposed controlled rotations. The sparse
-backend becomes useful when dense matrix allocation or unitary synthesis is the
-limiting resource.
+edge rotations before decomposition. The edge simulator handles those rotations
+in linear memory, while the Qiskit circuit still pays their gate cost.
 
 For an all-one input with runway half-length 8, the three CSR graph matrices use
-about 181 KiB at 1,024 leaves; three equivalent float64 dense matrices would use
-about 218 MiB. Both figures exclude Python object overhead and the Qiskit
-statevector.
+about 181 KiB at 1,024 leaves. Equivalent float64 dense matrices use about
+218 MiB. These figures exclude Python object overhead and any statevector.
 
-Sparse matrices remove the largest classical allocation, but they do not remove:
+Sparse storage does not remove:
 
-- statevector growth in the complete Qiskit register;
-- linear-size truth-table oracle construction;
-- multi-controlled-gate decomposition costs;
-- exponential exhaustive calibration over every input;
-- product-formula steps required for a chosen accuracy.
+- full-register statevector growth;
+- the linear-size truth-table oracle;
+- multi-controlled-gate decomposition;
+- product-formula repetitions;
+- exhaustive calibration over `2**N` inputs.
 
-Built-in calibrated classification remains limited to 2, 4, and 8 leaves.
-Larger inputs require `NandExperimentConfig`; a chosen threshold and step count
-must be validated and do not become calibrated merely because the simulation is
-faster.
-
-**Custom configurations above eight leaves still need threshold and step-count
-validation.**
-
-The next architectural step would be a reversible neighbor oracle and a genuine
-sparse-Hamiltonian block encoding rather than enumerating graph edges in the
-circuit.
+Above eight leaves, provide a `NandExperimentConfig` and validate its threshold
+and step count. Faster simulation does not perform that calibration for you.

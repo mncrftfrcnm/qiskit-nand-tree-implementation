@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from math import sqrt
 
-from .profiles import BUILTIN_PROFILES, sampling_plan, verify_profile
+from .profiles import BUILTIN_PROFILES, sparse_query_sampling_plan, verify_profile
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,9 @@ def scaling_report():
                 calls_per_square_root=oracle_calls / root,
                 exact_margin=exact.separation_margin,
                 query_margin=query.separation_margin,
-                shots_for_99_percent=sampling_plan(profile, confidence=0.99).shots,
+                shots_for_99_percent=sparse_query_sampling_plan(
+                    profile, confidence=0.99
+                ).shots,
             )
         )
     return tuple(rows)

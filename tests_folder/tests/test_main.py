@@ -29,7 +29,7 @@ def test_scaling_command_runs(capsys):
     assert main(["scaling"]) == 0
     output = capsys.readouterr().out
     assert '"oracle_calls": 4' in output
-    assert '"shots_for_99_percent": 60' in output
+    assert '"shots_for_99_percent": 153' in output
 
 
 def test_convergence_command_runs(capsys):

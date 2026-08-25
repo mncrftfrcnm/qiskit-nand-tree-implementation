@@ -5,17 +5,23 @@ from qiskit_implementation import evaluate_nand_tree
 
 def main() -> None:
     leaves = (1, 0, 1, 1)
-    result = evaluate_nand_tree(leaves)
+    results = [
+        evaluate_nand_tree(leaves, mode="dense"),
+        evaluate_nand_tree(leaves, mode="query"),
+    ]
 
     print("Basic calibrated evaluation")
-    print("mode:", result.mode)
     print("leaves:", "".join(map(str, leaves)))
-    print("expected root:", result.expected_value)
-    print("predicted root:", result.predicted_value)
-    print("transmission probability:", f"{result.transmission_probability:.6f}")
-    print("input-oracle calls:", result.query_count)
+    print("expected root:", results[0].expected_value)
+    for result in results:
+        print(
+            f"{result.mode}: root={result.predicted_value}, "
+            f"transmission={result.transmission_probability:.6f}, "
+            f"oracle calls={result.query_count}"
+        )
 
-    assert result.correct
+    assert all(result.correct for result in results)
+    assert results[0].predicted_value == results[1].predicted_value
     print("Example completed successfully.")
 
 

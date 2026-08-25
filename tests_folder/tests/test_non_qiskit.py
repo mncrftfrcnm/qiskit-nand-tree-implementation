@@ -9,7 +9,12 @@ from non_qiskit.classical import evaluate_bottom_up, evaluate_short_circuit
 from non_qiskit.convergence import product_formula_convergence
 from non_qiskit.exact_walk import evolve_state, initial_runway_packet, partition_probabilities
 from non_qiskit.graph import build_walk_graph
-from non_qiskit.profiles import BUILTIN_PROFILES, sampling_plan, verify_profile
+from non_qiskit.profiles import (
+    BUILTIN_PROFILES,
+    sampling_plan,
+    sparse_query_sampling_plan,
+    verify_profile,
+)
 from non_qiskit.scattering import analyze_scattering
 from non_qiskit.tree import NandTree
 
@@ -126,6 +131,15 @@ def test_sampling_plans_use_positive_verified_gaps():
         plan = sampling_plan(profile, confidence=0.99)
         assert plan.threshold_gap > 0
         assert plan.shots == expected_upper_bounds[leaves]
+
+
+def test_sparse_sampling_plans_use_backend_specific_gaps():
+    expected_shots = {2: 153, 4: 160, 8: 99}
+    for leaves, profile in BUILTIN_PROFILES.items():
+        plan = sparse_query_sampling_plan(profile, confidence=0.99)
+        assert plan.threshold_gap > 0
+        assert plan.shots == expected_shots[leaves]
+        assert plan.mode == "query-sparse-driver-reps-4"
 
 
 def test_sampling_plan_rejects_invalid_confidence():
