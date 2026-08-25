@@ -1,16 +1,21 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
 from math import log2
+from typing import Literal
 
 import numpy as np
 
 from non_qiskit.exact_walk import initial_runway_packet, partition_probabilities
-from non_qiskit.graph import NandWalkGraph, build_walk_graph
+from non_qiskit.graph import MatrixFormat, NandWalkGraph, build_walk_graph
 
 from ._imports import qiskit_api
+from .edge_evolution import build_all_leaf_edge_gate, build_driver_edge_gate
 from .gates import append_x_on_state
-from .hamiltonian import encode_hamiltonian, evolution_gate
+from .hamiltonian import evolution_gate, qubits_for_dimension
 from .oracles import build_bit_oracle
+
+EvolutionBackend = Literal["sparse", "dense"]
+SimulationBackend = Literal["auto", "edge", "qiskit"]
 
 
 @dataclass(frozen=True)
@@ -26,6 +31,7 @@ class QueryWalkResult:
     workspace_leakage: float
     norm: float
     state: np.ndarray
+    simulation_backend: str = "qiskit"
 
 
 @dataclass(frozen=True)
@@ -45,14 +51,32 @@ class QueryShotResult:
     query_count: int
     total_query_count: int
     batches: int = 1
+    simulation_backend: str = "qiskit"
 
     @property
     def leakage_shots(self) -> int:
         return self.padding + self.workspace
 
 
+def resolve_simulation_backend(
+    simulation_backend: SimulationBackend,
+    evolution_backend: EvolutionBackend,
+) -> Literal["edge", "qiskit"]:
+    """Resolve automatic simulation without changing circuit construction."""
+
+    if simulation_backend == "auto":
+        return "edge" if evolution_backend == "sparse" else "qiskit"
+    if simulation_backend == "edge":
+        if evolution_backend != "sparse":
+            raise ValueError("edge simulation requires evolution_backend='sparse'")
+        return "edge"
+    if simulation_backend == "qiskit":
+        return "qiskit"
+    raise ValueError("simulation_backend must be 'auto', 'edge', or 'qiskit'")
+
+
 def build_leaf_index_loader(graph: NandWalkGraph):
-    position_bits = encode_hamiltonian(graph.hamiltonian).qubits
+    position_bits = qubits_for_dimension(graph.size)
     address_bits = int(log2(graph.tree.leaf_count))
     circuit = qiskit_api().QuantumCircuit(position_bits + address_bits, name="leaf_index")
 
@@ -75,7 +99,9 @@ def build_leaf_index_loader(graph: NandWalkGraph):
 
 
 def _full_leaf_edge_hamiltonian(graph: NandWalkGraph) -> np.ndarray:
-    adjacency = np.zeros_like(graph.adjacency)
+    """Legacy dense reference used only when evolution_backend='dense'."""
+
+    adjacency = np.zeros((graph.size, graph.size), dtype=float)
     for leaf in range(graph.tree.leaf_count):
         tree_vertex = graph.vertex_index("tree", graph.tree.leaf_node(leaf))
         oracle_vertex = graph.vertex_index("oracle", leaf)
@@ -89,23 +115,30 @@ def build_oracle_evolution_block(
     leaves: Iterable[int],
     *,
     time: float,
+    evolution_backend: EvolutionBackend = "sparse",
 ):
     """Apply the input-dependent leaf-edge evolution with a clean work qubit."""
 
-    encoded = encode_hamiltonian(graph.hamiltonian)
+    if evolution_backend not in ("sparse", "dense"):
+        raise ValueError("evolution_backend must be 'sparse' or 'dense'")
+
+    position_bits = qubits_for_dimension(graph.size)
     address_bits = int(log2(graph.tree.leaf_count))
-    position = list(range(encoded.qubits))
-    address = list(range(encoded.qubits, encoded.qubits + address_bits))
-    value = encoded.qubits + address_bits
+    position = list(range(position_bits))
+    address = list(range(position_bits, position_bits + address_bits))
+    value = position_bits + address_bits
 
     circuit = qiskit_api().QuantumCircuit(value + 1, name="oracle_evolution")
     load_address = build_leaf_index_loader(graph).to_gate()
     query = build_bit_oracle(leaves).to_gate()
-    leaf_edges = evolution_gate(
-        _full_leaf_edge_hamiltonian(graph),
-        time=time,
-        label="oracle_edges",
-    ).control(1)
+    if evolution_backend == "sparse":
+        leaf_edges = build_all_leaf_edge_gate(graph, time=time, controlled=True)
+    else:
+        leaf_edges = evolution_gate(
+            _full_leaf_edge_hamiltonian(graph),
+            time=time,
+            label="oracle_edges",
+        ).control(1)
 
     # The walk register stores a graph vertex, not a leaf number. For leaf and
     # auxiliary vertices, this first step computes the corresponding leaf index k
@@ -135,25 +168,45 @@ def build_query_walk_circuit(
     packet_length: int = 4,
     time: float = 2.0,
     steps: int = 2,
+    matrix_format: MatrixFormat = "sparse",
+    evolution_backend: EvolutionBackend = "sparse",
+    driver_reps: int = 4,
 ):
     if steps < 1:
         raise ValueError("steps must be at least one")
 
-    graph = build_walk_graph(leaves, runway_half_length=runway_half_length)
-    encoded = encode_hamiltonian(graph.hamiltonian)
+    if driver_reps < 1:
+        raise ValueError("driver_reps must be at least one")
+
+    graph = build_walk_graph(
+        leaves,
+        runway_half_length=runway_half_length,
+        matrix_format=matrix_format,
+    )
+    position_bits = qubits_for_dimension(graph.size)
     address_bits = int(log2(graph.tree.leaf_count))
 
-    position = list(range(encoded.qubits))
-    value = encoded.qubits + address_bits
+    position = list(range(position_bits))
+    value = position_bits + address_bits
     circuit = qiskit_api().QuantumCircuit(value + 1, name="query_walk")
 
-    packet = np.zeros(1 << encoded.qubits, dtype=complex)
+    packet = np.zeros(1 << position_bits, dtype=complex)
     packet[: graph.size] = initial_runway_packet(graph, packet_length)
     circuit.initialize(packet, position)
 
     dt = time / steps
-    driver = evolution_gate(graph.driver_hamiltonian, time=dt / 2, label="driver")
-    oracle_step = build_oracle_evolution_block(graph, graph.tree.leaves, time=dt).to_gate()
+    if evolution_backend == "sparse":
+        driver = build_driver_edge_gate(graph, time=dt / 2, reps=driver_reps)
+    elif evolution_backend == "dense":
+        driver = evolution_gate(graph.driver_hamiltonian, time=dt / 2, label="driver")
+    else:
+        raise ValueError("evolution_backend must be 'sparse' or 'dense'")
+    oracle_step = build_oracle_evolution_block(
+        graph,
+        graph.tree.leaves,
+        time=dt,
+        evolution_backend=evolution_backend,
+    ).to_gate()
     all_qubits = list(range(circuit.num_qubits))
 
     # Symmetric splitting: half a driver step, one input-dependent step, then the
@@ -166,23 +219,37 @@ def build_query_walk_circuit(
     return graph, circuit
 
 
-def simulate_query_walk(
+def _apply_edge_sequence(
+    state: np.ndarray,
+    edges: tuple[tuple[int, int], ...],
+    *,
+    time: float,
+) -> None:
+    """Apply ordered two-level rotations directly to a position state."""
+
+    if time == 0.0 or not edges:
+        return
+    cosine = np.cos(time)
+    imaginary_sine = 1j * np.sin(time)
+    for left, right in edges:
+        left_amplitude = state[left]
+        right_amplitude = state[right]
+        state[left] = cosine * left_amplitude + imaginary_sine * right_amplitude
+        state[right] = imaginary_sine * left_amplitude + cosine * right_amplitude
+
+
+def _query_result_from_graph_state(
     graph: NandWalkGraph,
-    circuit,
+    state: np.ndarray,
     *,
     steps: int,
-    threshold: float = 0.5,
+    threshold: float,
+    simulation_backend: str,
+    padding_leakage: float = 0.0,
+    workspace_leakage: float = 0.0,
 ) -> QueryWalkResult:
-    encoded = encode_hamiltonian(graph.hamiltonian)
-    state = np.asarray(qiskit_api().Statevector.from_instruction(circuit).data)
-    position_state = state[: 1 << encoded.qubits]
-    graph_state = position_state[: graph.size]
-
-    transmitted, reflected, tree = partition_probabilities(graph, graph_state)
+    transmitted, reflected, tree = partition_probabilities(graph, state[: graph.size])
     norm = float(np.vdot(state, state).real)
-    position_norm = float(np.vdot(position_state, position_state).real)
-    graph_norm = float(np.vdot(graph_state, graph_state).real)
-
     return QueryWalkResult(
         root_value=graph.tree.root_value,
         predicted_value=int(transmitted >= threshold),
@@ -191,10 +258,84 @@ def simulate_query_walk(
         transmission_probability=transmitted,
         reflection_probability=reflected,
         tree_probability=tree,
-        padding_leakage=max(0.0, position_norm - graph_norm),
-        workspace_leakage=max(0.0, norm - position_norm),
+        padding_leakage=padding_leakage,
+        workspace_leakage=workspace_leakage,
         norm=norm,
         state=state,
+        simulation_backend=simulation_backend,
+    )
+
+
+def simulate_edge_query_walk(
+    graph: NandWalkGraph,
+    *,
+    packet_length: int,
+    time: float,
+    steps: int,
+    threshold: float = 0.5,
+    driver_reps: int = 4,
+) -> QueryWalkResult:
+    """Simulate the structured sparse query circuit without gate decomposition.
+
+    The circuit's address and value registers are uncomputed after each oracle
+    block. Their clean action on the position register is therefore exactly the
+    ordered driver-edge product formula plus the present, disjoint oracle edges.
+    """
+
+    if steps < 1:
+        raise ValueError("steps must be at least one")
+    if driver_reps < 1:
+        raise ValueError("driver_reps must be at least one")
+
+    state = initial_runway_packet(graph, packet_length)
+    driver_edges = tuple(graph.driver_edges())
+    reverse_driver_edges = tuple(reversed(driver_edges))
+    oracle_edges = tuple(graph.oracle_edges())
+    dt = time / steps
+    driver_edge_time = dt / (4 * driver_reps)
+
+    def apply_half_driver() -> None:
+        for _ in range(driver_reps):
+            _apply_edge_sequence(state, driver_edges, time=driver_edge_time)
+            _apply_edge_sequence(state, reverse_driver_edges, time=driver_edge_time)
+
+    for _ in range(steps):
+        apply_half_driver()
+        _apply_edge_sequence(state, oracle_edges, time=dt)
+        apply_half_driver()
+
+    return _query_result_from_graph_state(
+        graph,
+        state,
+        steps=steps,
+        threshold=threshold,
+        simulation_backend="edge",
+    )
+
+
+def simulate_query_walk(
+    graph: NandWalkGraph,
+    circuit,
+    *,
+    steps: int,
+    threshold: float = 0.5,
+) -> QueryWalkResult:
+    position_bits = qubits_for_dimension(graph.size)
+    state = np.asarray(qiskit_api().Statevector.from_instruction(circuit).data)
+    position_state = state[: 1 << position_bits]
+    graph_state = position_state[: graph.size]
+
+    norm = float(np.vdot(state, state).real)
+    position_norm = float(np.vdot(position_state, position_state).real)
+    graph_norm = float(np.vdot(graph_state, graph_state).real)
+    return _query_result_from_graph_state(
+        graph,
+        state,
+        steps=steps,
+        threshold=threshold,
+        simulation_backend="qiskit",
+        padding_leakage=max(0.0, position_norm - graph_norm),
+        workspace_leakage=max(0.0, norm - position_norm),
     )
 
 
@@ -206,13 +347,36 @@ def run_query_walk(
     time: float = 2.0,
     steps: int = 2,
     threshold: float = 0.5,
+    matrix_format: MatrixFormat = "sparse",
+    evolution_backend: EvolutionBackend = "sparse",
+    simulation_backend: SimulationBackend = "auto",
+    driver_reps: int = 4,
 ) -> QueryWalkResult:
+    resolved_simulator = resolve_simulation_backend(simulation_backend, evolution_backend)
+    if resolved_simulator == "edge":
+        graph = build_walk_graph(
+            leaves,
+            runway_half_length=runway_half_length,
+            matrix_format=matrix_format,
+        )
+        return simulate_edge_query_walk(
+            graph,
+            packet_length=packet_length,
+            time=time,
+            steps=steps,
+            threshold=threshold,
+            driver_reps=driver_reps,
+        )
+
     graph, circuit = build_query_walk_circuit(
         leaves,
         runway_half_length=runway_half_length,
         packet_length=packet_length,
         time=time,
         steps=steps,
+        matrix_format=matrix_format,
+        evolution_backend=evolution_backend,
+        driver_reps=driver_reps,
     )
     return simulate_query_walk(graph, circuit, steps=steps, threshold=threshold)
 
@@ -226,6 +390,114 @@ def _wilson_interval(successes: int, total: int, z: float = 1.96):
     return max(0.0, center - radius), min(1.0, center + radius)
 
 
+def _edge_sample_summary(
+    counts: np.ndarray,
+    *,
+    steps: int,
+    threshold: float,
+    batches: int,
+) -> QueryShotResult:
+    transmitted, reflected, tree = (int(value) for value in counts)
+    shots = transmitted + reflected + tree
+    probability = transmitted / shots
+    low, high = _wilson_interval(transmitted, shots)
+    predicted = int(probability >= threshold)
+    stable = low >= threshold if predicted else high < threshold
+    return QueryShotResult(
+        shots=shots,
+        valid_shots=shots,
+        transmitted=transmitted,
+        reflected=reflected,
+        tree=tree,
+        padding=0,
+        workspace=0,
+        transmission_probability=probability,
+        confidence_low=low,
+        confidence_high=high,
+        predicted_value=predicted,
+        stable_decision=stable,
+        query_count=2 * steps,
+        total_query_count=2 * steps * shots,
+        batches=batches,
+        simulation_backend="edge",
+    )
+
+
+def _edge_category_probabilities(result: QueryWalkResult) -> np.ndarray:
+    probabilities = np.array(
+        [
+            result.transmission_probability,
+            result.reflection_probability,
+            result.tree_probability,
+        ],
+        dtype=float,
+    )
+    probabilities = np.maximum(probabilities, 0.0)
+    return probabilities / probabilities.sum()
+
+
+def sample_edge_query_walk(
+    result: QueryWalkResult,
+    *,
+    threshold: float,
+    shots: int = 4096,
+    seed: int | None = None,
+) -> QueryShotResult:
+    """Sample the ideal clean-register distribution from an edge result."""
+
+    if shots < 1:
+        raise ValueError("shots must be positive")
+    rng = np.random.default_rng(seed)
+    counts = rng.multinomial(shots, _edge_category_probabilities(result))
+    return _edge_sample_summary(
+        counts,
+        steps=result.steps,
+        threshold=threshold,
+        batches=1,
+    )
+
+
+def sample_edge_query_walk_adaptive(
+    result: QueryWalkResult,
+    *,
+    threshold: float,
+    min_shots: int = 256,
+    max_shots: int = 8192,
+    batch_shots: int = 256,
+    seed: int | None = None,
+) -> QueryShotResult:
+    """Adaptively sample a matrix-free edge-simulation result."""
+
+    if min_shots < 1:
+        raise ValueError("min_shots must be positive")
+    if max_shots < min_shots:
+        raise ValueError("max_shots must be at least min_shots")
+    if batch_shots < 1:
+        raise ValueError("batch_shots must be positive")
+
+    rng = np.random.default_rng(seed)
+    probabilities = _edge_category_probabilities(result)
+    counts = np.zeros(3, dtype=np.int64)
+    total = batches = 0
+    summary: QueryShotResult | None = None
+    while total < max_shots:
+        batch = min(batch_shots, max_shots - total)
+        counts += rng.multinomial(batch, probabilities)
+        total += batch
+        batches += 1
+        summary = _edge_sample_summary(
+            counts,
+            steps=result.steps,
+            threshold=threshold,
+            batches=batches,
+        )
+        if total >= min_shots and summary.stable_decision:
+            return summary
+
+    assert summary is not None
+    return summary
+
+
 def summarize_query_counts(
     graph: NandWalkGraph,
     counts: dict[str, int],
@@ -234,7 +506,7 @@ def summarize_query_counts(
     threshold: float,
     batches: int = 1,
 ) -> QueryShotResult:
-    position_bits = encode_hamiltonian(graph.hamiltonian).qubits
+    position_bits = qubits_for_dimension(graph.size)
     position_mask = (1 << position_bits) - 1
     transmitted = reflected = tree = padding = workspace = 0
 

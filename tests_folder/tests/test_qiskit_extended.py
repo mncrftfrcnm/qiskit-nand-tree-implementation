@@ -13,6 +13,9 @@ from non_qiskit.profiles import AlgorithmProfile, profile_for  # noqa: E402
 from non_qiskit.tree import NandTree  # noqa: E402
 from qiskit_implementation._imports import qiskit_api  # noqa: E402
 from qiskit_implementation.classifier import evaluate_nand_tree, verify_qiskit_profile  # noqa: E402
+from qiskit_implementation.edge_evolution import (  # noqa: E402
+    append_two_level_edge_rotation,
+)
 from qiskit_implementation.evaluator import QuantumNandEvaluator  # noqa: E402
 from qiskit_implementation.evolution import (  # noqa: E402
     build_evolution_circuit,
@@ -21,14 +24,20 @@ from qiskit_implementation.evolution import (  # noqa: E402
     sample_positions,
 )
 from qiskit_implementation.gates import append_phase_on_state, append_x_on_state  # noqa: E402
-from qiskit_implementation.hamiltonian import encode_hamiltonian, evolution_gate  # noqa: E402
+from qiskit_implementation.hamiltonian import (  # noqa: E402
+    encode_hamiltonian,
+    evolution_gate,
+    qubits_for_dimension,
+)
 from qiskit_implementation.oracles import build_bit_oracle, build_phase_oracle  # noqa: E402
 from qiskit_implementation.phase_probe import run_phase_probe  # noqa: E402
 from qiskit_implementation.query_walk import (  # noqa: E402
     build_oracle_evolution_block,
     build_query_walk_circuit,
+    resolve_simulation_backend,
     sample_query_walk,
     sample_query_walk_adaptive,
+    simulate_edge_query_walk,
     simulate_query_walk,
     summarize_query_counts,
 )
@@ -52,7 +61,10 @@ def test_qiskit_api_is_cached_and_complete():
         "HamiltonianGate",
         "MCXGate",
         "PauliEvolutionGate",
+        "PermutationGate",
         "QuantumCircuit",
+        "QFTGate",
+        "RXGate",
         "SparsePauliOp",
         "Statevector",
         "StatevectorSampler",
@@ -139,6 +151,29 @@ def test_encode_hamiltonian_preserves_matrix_and_zero_pads():
     assert np.allclose(encoded.matrix[:, 3], 0)
 
 
+@pytest.mark.parametrize(("dimension", "qubits"), [(1, 1), (2, 1), (3, 2), (8, 3), (9, 4)])
+def test_qubits_for_dimension_does_not_require_a_matrix(dimension, qubits):
+    assert qubits_for_dimension(dimension) == qubits
+
+
+def test_two_level_edge_rotation_matches_the_expected_subspace_unitary():
+    circuit = qiskit.QuantumCircuit(3)
+    time = 0.37
+    left, right = 1, 6
+    append_two_level_edge_rotation(
+        circuit,
+        circuit.qubits,
+        left,
+        right,
+        time=time,
+    )
+    actual = Operator(circuit).data
+    expected = np.eye(8, dtype=complex)
+    expected[left, left] = expected[right, right] = np.cos(time)
+    expected[left, right] = expected[right, left] = 1j * np.sin(time)
+    assert np.allclose(actual, expected, atol=1e-9)
+
+
 @pytest.mark.parametrize(
     "matrix",
     [
@@ -197,6 +232,37 @@ def test_exact_qiskit_walk_matches_direct_scipy_evolution():
     encoded = encode_hamiltonian(graph.hamiltonian)
     expected = expm(-1j * time * encoded.matrix) @ initial
     assert np.isclose(abs(np.vdot(expected, actual)), 1.0, atol=1e-9)
+
+
+def test_sparse_edge_walk_converges_to_exact_evolution():
+    graph = build_walk_graph((1, 0), runway_half_length=2)
+    time = 0.15
+    initial = encoded_initial_state(graph, packet_length=3)
+    encoded = encode_hamiltonian(graph.hamiltonian)
+    expected = expm(-1j * time * encoded.matrix) @ initial
+
+    coarse = Statevector.from_instruction(
+        build_evolution_circuit(
+            graph,
+            packet_length=3,
+            time=time,
+            method="edge",
+            reps=1,
+        )
+    ).data
+    refined = Statevector.from_instruction(
+        build_evolution_circuit(
+            graph,
+            packet_length=3,
+            time=time,
+            method="edge",
+            reps=4,
+        )
+    ).data
+
+    coarse_error = 1 - abs(np.vdot(expected, coarse)) ** 2
+    refined_error = 1 - abs(np.vdot(expected, refined)) ** 2
+    assert refined_error < coarse_error
 
 
 def test_symmetric_split_improves_with_more_steps_for_small_time():
@@ -282,6 +348,51 @@ def test_query_walk_circuit_uses_expected_register_width():
     address_bits = NandTree(leaves).depth
     assert circuit.num_qubits == position_bits + address_bits + 1
     assert circuit.name == "query_walk"
+
+
+@pytest.mark.parametrize("leaves", tuple(product((0, 1), repeat=2)))
+def test_matrix_free_edge_simulator_matches_qiskit_statevector(leaves):
+    profile = profile_for(2)
+    graph, circuit = build_query_walk_circuit(
+        leaves,
+        runway_half_length=profile.runway_half_length,
+        packet_length=profile.packet_length,
+        time=profile.evolution_time,
+        steps=profile.query_steps,
+        driver_reps=4,
+    )
+    matrix_free = simulate_edge_query_walk(
+        graph,
+        packet_length=profile.packet_length,
+        time=profile.evolution_time,
+        steps=profile.query_steps,
+        threshold=profile.threshold,
+        driver_reps=4,
+    )
+    statevector = simulate_query_walk(
+        graph,
+        circuit,
+        steps=profile.query_steps,
+        threshold=profile.threshold,
+    )
+
+    assert matrix_free.simulation_backend == "edge"
+    assert statevector.simulation_backend == "qiskit"
+    assert np.allclose(matrix_free.state, statevector.state[: graph.size], atol=1e-9)
+    assert matrix_free.transmission_probability == pytest.approx(
+        statevector.transmission_probability,
+        abs=1e-9,
+    )
+
+
+def test_simulation_backend_resolution_and_validation():
+    assert resolve_simulation_backend("auto", "sparse") == "edge"
+    assert resolve_simulation_backend("auto", "dense") == "qiskit"
+    assert resolve_simulation_backend("qiskit", "sparse") == "qiskit"
+    with pytest.raises(ValueError, match="requires evolution_backend"):
+        resolve_simulation_backend("edge", "dense")
+    with pytest.raises(ValueError, match="simulation_backend"):
+        resolve_simulation_backend("unknown", "sparse")
 
 
 def test_zero_time_query_walk_keeps_packet_on_the_left():
@@ -456,7 +567,7 @@ def test_evaluator_rejects_conflicting_or_invalid_options():
     with pytest.raises(ValueError):
         evaluate_nand_tree((1, 0), shots=10, confidence=0.9)
     with pytest.raises(ValueError):
-        evaluate_nand_tree((1, 0), shots=10, mode="dense")
+        evaluate_nand_tree((1, 0), shots=10)
     with pytest.raises(ValueError):
         evaluate_nand_tree((1, 0), mode="unknown")
 
@@ -518,6 +629,8 @@ def test_query_walk_matches_symmetric_split_for_all_four_leaf_inputs():
             packet_length=profile.packet_length,
             time=profile.evolution_time,
             steps=profile.query_steps,
+            matrix_format="dense",
+            evolution_backend="dense",
         )
         split_circuit = build_evolution_circuit(
             graph,
@@ -525,6 +638,7 @@ def test_query_walk_matches_symmetric_split_for_all_four_leaf_inputs():
             time=profile.evolution_time,
             method="symmetric",
             reps=profile.query_steps,
+            evolution_backend="dense",
         )
         query_state = Statevector.from_instruction(query_circuit).data
         position_bits = encode_hamiltonian(graph.hamiltonian).qubits

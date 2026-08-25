@@ -31,27 +31,26 @@ def main(argv: Sequence[str] | None = None) -> None:
     leaf_count = 4
     profile = profile_for(leaf_count)
 
-    zero_x: list[int] = []
-    zero_y: list[float] = []
-    one_x: list[int] = []
-    one_y: list[float] = []
+    points = {
+        (mode, root): ([], []) for mode in ("dense", "query") for root in (0, 1)
+    }
 
     for index, leaves in enumerate(product((0, 1), repeat=leaf_count)):
-        result = evaluate_nand_tree(leaves)
-        if result.expected_value == 0:
-            zero_x.append(index)
-            zero_y.append(result.transmission_probability)
-        else:
-            one_x.append(index)
-            one_y.append(result.transmission_probability)
+        for mode in ("dense", "query"):
+            result = evaluate_nand_tree(leaves, mode=mode)
+            x_values, y_values = points[(mode, result.expected_value)]
+            x_values.append(index)
+            y_values.append(result.transmission_probability)
+            assert result.correct
 
     figure, axes = plt.subplots()
-    axes.scatter(zero_x, zero_y, label="root = 0")
-    axes.scatter(one_x, one_y, label="root = 1")
+    markers = {"dense": "o", "query": "x"}
+    for (mode, root), (x_values, y_values) in points.items():
+        axes.scatter(x_values, y_values, marker=markers[mode], label=f"{mode}, root = {root}")
     axes.axhline(profile.threshold, linestyle="--", label="threshold")
     axes.set_xlabel("input")
     axes.set_ylabel("transmission probability")
-    axes.set_title("4-leaf NAND-tree calibration")
+    axes.set_title("4-leaf dense and query calibration")
     axes.legend()
     figure.tight_layout()
 

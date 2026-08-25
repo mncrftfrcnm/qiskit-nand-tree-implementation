@@ -1,12 +1,13 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from non_qiskit.graph import MatrixFormat
 from non_qiskit.tree import NandTree
 
-from .classifier import NandEvaluation, evaluate_nand_tree
+from .classifier import EvaluationMode, NandEvaluation, evaluate_nand_tree
 from .evolution import CircuitMethod, QiskitWalkResult, run_qiskit_walk
 from .phase_probe import PhaseProbeResult, run_phase_probe
-from .query_walk import QueryWalkResult, run_query_walk
+from .query_walk import EvolutionBackend, QueryWalkResult, SimulationBackend, run_query_walk
 
 
 @dataclass(frozen=True)
@@ -24,11 +25,17 @@ class QuantumNandEvaluator:
         *,
         runway_half_length: int = 6,
         packet_length: int = 4,
+        matrix_format: MatrixFormat = "sparse",
+        evolution_backend: EvolutionBackend = "sparse",
+        simulation_backend: SimulationBackend = "auto",
     ):
         tree = NandTree(leaves)
         self.leaves = tree.leaves
         self.runway_half_length = runway_half_length
         self.packet_length = packet_length
+        self.matrix_format = matrix_format
+        self.evolution_backend = evolution_backend
+        self.simulation_backend = simulation_backend
 
     @property
     def classical_value(self) -> int:
@@ -37,14 +44,18 @@ class QuantumNandEvaluator:
     def evaluate(
         self,
         *,
+        mode: EvaluationMode = "dense",
         shots: int | None = None,
         seed: int | None = None,
     ) -> NandEvaluation:
         return evaluate_nand_tree(
             self.leaves,
-            mode="query",
+            mode=mode,
             shots=shots,
             seed=seed,
+            matrix_format=self.matrix_format,
+            evolution_backend=self.evolution_backend,
+            simulation_backend=self.simulation_backend,
         )
 
     # Kept as a compatibility alias for code written against versions <= 0.6.2.
@@ -66,6 +77,8 @@ class QuantumNandEvaluator:
             method=method,
             reps=reps,
             threshold=threshold,
+            matrix_format=self.matrix_format,
+            evolution_backend=self.evolution_backend,
         )
         return QuantumEvaluationResult(self.leaves, self.classical_value, walk)
 
@@ -75,6 +88,7 @@ class QuantumNandEvaluator:
         time: float = 2.0,
         steps: int = 2,
         threshold: float = 0.5,
+        driver_reps: int = 4,
     ) -> QuantumEvaluationResult:
         walk = run_query_walk(
             self.leaves,
@@ -83,6 +97,10 @@ class QuantumNandEvaluator:
             time=time,
             steps=steps,
             threshold=threshold,
+            matrix_format=self.matrix_format,
+            evolution_backend=self.evolution_backend,
+            simulation_backend=self.simulation_backend,
+            driver_reps=driver_reps,
         )
         return QuantumEvaluationResult(self.leaves, self.classical_value, walk)
 
@@ -98,6 +116,8 @@ class QuantumNandEvaluator:
             packet_length=self.packet_length,
             evaluation_qubits=evaluation_qubits,
             evolution_time=evolution_time,
+            matrix_format=self.matrix_format,
+            evolution_backend=self.evolution_backend,
         )
 
     def run(

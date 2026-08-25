@@ -4,12 +4,12 @@ from non_qiskit.profiles import profile_for
 from qiskit_implementation import NandExperimentConfig, WalkParameters, evaluate_nand_tree
 
 
-def test_experiment_config_from_profile_matches_default_query_evaluation():
+def test_experiment_config_from_profile_matches_explicit_query_evaluation():
     leaves = (1, 0)
     experiment = NandExperimentConfig.from_profile(profile_for(len(leaves)))
 
-    configured = evaluate_nand_tree(leaves, experiment=experiment)
-    default = evaluate_nand_tree(leaves)
+    configured = evaluate_nand_tree(leaves, mode="query", experiment=experiment)
+    default = evaluate_nand_tree(leaves, mode="query")
 
     assert configured.profile is experiment
     assert configured.correct == default.correct
@@ -31,6 +31,27 @@ def test_custom_experiment_is_used_for_dense_evaluation():
     assert result.query_count == 0
 
 
+def test_custom_experiment_supports_more_than_eight_leaves():
+    leaves = (0,) * 16
+    experiment = NandExperimentConfig(
+        walk=WalkParameters(
+            runway_half_length=2,
+            packet_length=3,
+            evolution_time=0.0,
+        ),
+        query_steps=1,
+        threshold=0.5,
+    )
+
+    result = evaluate_nand_tree(leaves, mode="query", experiment=experiment)
+
+    assert result.profile is experiment
+    assert result.correct
+    assert result.query_count == 2
+    assert result.walk_result is not None
+    assert result.walk_result.simulation_backend == "edge"
+
+
 def test_profile_and_experiment_are_mutually_exclusive():
     profile = profile_for(2)
     experiment = NandExperimentConfig.from_profile(profile)
@@ -43,7 +64,12 @@ def test_confidence_sampling_requires_a_calibrated_profile():
     experiment = NandExperimentConfig.from_profile(profile_for(2))
 
     with pytest.raises(ValueError, match="calibrated profile"):
-        evaluate_nand_tree((1, 0), experiment=experiment, confidence=0.99)
+        evaluate_nand_tree(
+            (1, 0),
+            mode="query",
+            experiment=experiment,
+            confidence=0.99,
+        )
 
 
 @pytest.mark.parametrize(
@@ -58,9 +84,7 @@ def test_confidence_sampling_requires_a_calibrated_profile():
         (2, True, TypeError),
     ],
 )
-def test_experiment_config_rejects_invalid_classifier_settings(
-    query_steps, threshold, error
-):
+def test_experiment_config_rejects_invalid_classifier_settings(query_steps, threshold, error):
     walk = WalkParameters(runway_half_length=2, packet_length=3, evolution_time=7.8)
 
     with pytest.raises(error):

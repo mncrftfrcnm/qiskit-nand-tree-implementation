@@ -14,8 +14,8 @@ from qiskit_implementation.query_walk import build_query_walk_circuit
 @pytest.mark.parametrize("leaves", [(1, 0), (1, 0, 1, 1)])
 def test_query_and_dense_modes_agree_on_supported_examples(leaves):
     profile = profile_for(len(leaves))
-    query = evaluate_nand_tree(leaves)
-    dense = evaluate_nand_tree(leaves, mode="dense")
+    query = evaluate_nand_tree(leaves, mode="query")
+    dense = evaluate_nand_tree(leaves)
 
     assert query.correct
     assert dense.correct
@@ -25,8 +25,8 @@ def test_query_and_dense_modes_agree_on_supported_examples(leaves):
 
 
 def test_query_and_dense_results_account_for_all_probability():
-    query = evaluate_nand_tree((1, 0))
-    dense = evaluate_nand_tree((1, 0), mode="dense")
+    query = evaluate_nand_tree((1, 0), mode="query")
+    dense = evaluate_nand_tree((1, 0))
 
     query_walk = query.walk_result
     dense_walk = dense.walk_result
@@ -52,8 +52,8 @@ def test_query_and_dense_results_account_for_all_probability():
 
 
 def test_sampled_public_api_is_reproducible_with_a_seed():
-    first = evaluate_nand_tree((1, 0), shots=128, seed=17)
-    second = evaluate_nand_tree((1, 0), shots=128, seed=17)
+    first = evaluate_nand_tree((1, 0), mode="query", shots=128, seed=17)
+    second = evaluate_nand_tree((1, 0), mode="query", shots=128, seed=17)
 
     assert first.shot_result is not None
     assert second.shot_result is not None
@@ -123,7 +123,7 @@ def test_example_script_compares_query_dense_and_sampled_modes(capsys):
     assert run_example() == 0
     output = capsys.readouterr().out
 
-    assert "query statevector:" in output
+    assert "query edge simulation:" in output
     assert "dense reference:" in output
     assert "sampled:" in output
 

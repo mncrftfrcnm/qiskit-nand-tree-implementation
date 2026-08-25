@@ -5,9 +5,9 @@ from qiskit_implementation import evaluate_nand_tree
 
 def main() -> int:
     leaves = (1, 0)
-    query = evaluate_nand_tree(leaves)
-    dense = evaluate_nand_tree(leaves, mode="dense")
-    sampled = evaluate_nand_tree(leaves, shots=512, seed=17)
+    query = evaluate_nand_tree(leaves, mode="query")
+    dense = evaluate_nand_tree(leaves)
+    sampled = evaluate_nand_tree(leaves, mode="query", shots=512, seed=17)
     shots = sampled.shot_result
     leaf_bits = "".join(str(bit) for bit in leaves)
 
@@ -15,7 +15,7 @@ def main() -> int:
     print(f"leaves: {leaf_bits}")
     print(f"expected root: {query.expected_value}")
     print(
-        "query statevector: "
+        "query edge simulation: "
         f"root={query.predicted_value}, "
         f"transmission={query.transmission_probability:.6f}, "
         f"oracle calls={query.query_count}"

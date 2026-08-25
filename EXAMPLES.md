@@ -1,21 +1,24 @@
-# Example experiments
+# Example commands
 
-These are a few concrete ways I use the repository when checking the finite NAND-tree model.
-
-## Compare the exact and split/query reference models
-
-To see whether both reference models separate NAND outputs for the same calibrated profile:
+Run these from the repository root after installing the development dependencies:
 
 ```bash
+python -m pip install -e ".[dev]"
+```
+
+## Compare dense and query results
+
+```bash
+python main.py evaluate --leaves 1011 --mode dense
+python main.py evaluate --leaves 1011 --mode query
 python main.py verify --leaf-count 4 --mode both
 ```
 
-The output includes the largest root-0 transmission, the smallest root-1 transmission, and
-the separation margin for both modes.
+Dense mode is the exact finite-Hamiltonian reference. Query mode exposes the
+oracle count and uses the matrix-free edge simulator by default. To run its full
+Qiskit circuit, add `--simulation-backend qiskit`.
 
-## Check product-formula convergence
-
-To see how the symmetric split approaches the exact finite walk as the number of steps grows:
+## Product-formula convergence
 
 ```bash
 python main.py convergence \
@@ -26,41 +29,47 @@ python main.py convergence \
   --steps 1,2,4,8,16
 ```
 
-This reports state fidelity, state error, transmission error, and oracle-call count at each step
-count.
+The output includes fidelity, state error, transmission error, and oracle calls
+for each step count.
 
-## Inspect the graph built for an input
+## Inspect a graph
 
 ```bash
 python main.py graph --leaves 1011 --runway 3
+python main.py graph --leaves 1011 --runway 3 --matrix-format dense
 ```
 
-This is useful for checking the number of vertices, total edges, oracle edges, and classical root
-value before running a quantum circuit.
+## Sampling
 
-## Compare query and dense Qiskit evaluation
+Sampling belongs to query mode in the current API:
 
 ```bash
-python main.py evaluate --leaves 1011 --mode query
-python main.py evaluate --leaves 1011 --mode dense
+python main.py evaluate --leaves 10 --mode query --shots 512 --seed 17
+python main.py evaluate --leaves 10 --mode query --confidence 0.99 --seed 17
 ```
 
-The query mode exposes the explicit oracle-query count. Dense mode is a small-matrix reference and
-reports zero input-oracle queries.
+## Custom size
 
-## Look at finite-shot behavior
+There is no built-in profile above eight leaves, so all experiment values must be
+given explicitly:
 
 ```bash
-python main.py evaluate --leaves 10 --shots 512 --seed 17
-python main.py evaluate --leaves 10 --confidence 0.99 --seed 17
+python main.py evaluate \
+  --leaves 0000000000000000 \
+  --mode query \
+  --runway 16 --packet 8 --time 4 --steps 16 --threshold 0.5
 ```
 
-The first command fixes the number of samples. The second uses the calibrated separation gap to
-choose a shot count for the requested confidence level.
+This command runs, but its threshold and step count are trial values until the
+full classification margin is checked.
 
-For a short Python example that compares query-statevector, dense-reference, and sampled results,
-run:
+## Python examples
 
 ```bash
 python example_usage.py
+for file in examples/*.py; do python "$file"; done
 ```
+
+Every script exercises both dense and query evaluation. The sampling and oracle
+operations inside examples 04 and 05 remain query-only because those features
+are part of the query implementation.

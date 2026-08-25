@@ -3,10 +3,10 @@ from dataclasses import dataclass
 from math import pi
 
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import spmatrix
 from scipy.sparse.linalg import expm_multiply
 
-from .graph import NandWalkGraph, build_walk_graph
+from .graph import GraphMatrix, MatrixFormat, NandWalkGraph, build_walk_graph
 
 
 @dataclass(frozen=True)
@@ -34,10 +34,14 @@ def initial_runway_packet(graph: NandWalkGraph, packet_length: int) -> np.ndarra
     return state
 
 
-def evolve_state(hamiltonian: np.ndarray, state: np.ndarray, time: float) -> np.ndarray:
+def evolve_state(
+    hamiltonian: GraphMatrix | spmatrix,
+    state: np.ndarray,
+    time: float,
+) -> np.ndarray:
     if hamiltonian.shape != (state.size, state.size):
         raise ValueError("state dimension does not match the Hamiltonian")
-    return np.asarray(expm_multiply(-1j * time * csr_matrix(hamiltonian), state))
+    return np.asarray(expm_multiply((-1j * time) * hamiltonian, state))
 
 
 def partition_probabilities(
@@ -68,8 +72,13 @@ def run_continuous_walk(
     packet_length: int = 8,
     time: float | None = None,
     threshold: float = 0.5,
+    matrix_format: MatrixFormat = "sparse",
 ) -> WalkResult:
-    graph = build_walk_graph(leaves, runway_half_length=runway_half_length)
+    graph = build_walk_graph(
+        leaves,
+        runway_half_length=runway_half_length,
+        matrix_format=matrix_format,
+    )
     initial = initial_runway_packet(graph, packet_length)
     evolution_time = packet_length / 2 if time is None else float(time)
     final = evolve_state(graph.hamiltonian, initial, evolution_time)

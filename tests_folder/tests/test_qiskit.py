@@ -7,7 +7,7 @@ qiskit = pytest.importorskip("qiskit")
 from qiskit.quantum_info import Operator, Statevector  # noqa: E402
 
 from non_qiskit.graph import build_walk_graph  # noqa: E402
-from non_qiskit.profiles import profile_for  # noqa: E402
+from non_qiskit.profiles import profile_for, sparse_query_sampling_plan  # noqa: E402
 from non_qiskit.tree import NandTree  # noqa: E402
 from qiskit_implementation.classifier import evaluate_nand_tree, verify_qiskit_profile  # noqa: E402
 from qiskit_implementation.evolution import (  # noqa: E402
@@ -126,6 +126,7 @@ def test_phase_probe_has_evaluation_and_system_qubits():
         evaluation_qubits=3,
     )
     encoded = encode_hamiltonian(graph.hamiltonian)
+    assert graph.matrix_format == "sparse"
     assert circuit.num_qubits == 3 + encoded.qubits
 
 
@@ -208,6 +209,8 @@ def test_query_walk_matches_symmetric_split_for_all_two_leaf_inputs():
             packet_length=profile.packet_length,
             time=profile.evolution_time,
             steps=profile.query_steps,
+            matrix_format="dense",
+            evolution_backend="dense",
         )
         split_circuit = build_evolution_circuit(
             graph,
@@ -215,6 +218,7 @@ def test_query_walk_matches_symmetric_split_for_all_two_leaf_inputs():
             time=profile.evolution_time,
             method="symmetric",
             reps=profile.query_steps,
+            evolution_backend="dense",
         )
         query_state = Statevector.from_instruction(query_circuit).data
         position_bits = encode_hamiltonian(graph.hamiltonian).qubits
@@ -239,9 +243,9 @@ def test_query_walk_counts_calls_and_cleans_workspace():
 
 
 @pytest.mark.parametrize("leaf_count", [2, 4])
-def test_automatic_query_evaluator_classifies_all_fast_inputs(leaf_count):
+def test_explicit_query_evaluator_classifies_all_fast_inputs(leaf_count):
     for leaves in product((0, 1), repeat=leaf_count):
-        result = evaluate_nand_tree(leaves)
+        result = evaluate_nand_tree(leaves, mode="query")
         assert result.correct
         assert result.query_count == 2 * profile_for(leaf_count).query_steps
 
@@ -273,17 +277,28 @@ def test_count_summary_excludes_dirty_workspace_from_decision():
 
 
 def test_confidence_bound_selects_shot_count():
-    result = evaluate_nand_tree((1, 0), confidence=0.99, seed=7)
+    result = evaluate_nand_tree((1, 0), mode="query", confidence=0.99, seed=7)
     assert result.sampling_plan is not None
     assert result.shot_result is not None
-    assert result.shot_result.shots == result.sampling_plan.shots == 60
-    assert result.shot_result.total_query_count == 240
+    assert result.shot_result.shots == result.sampling_plan.shots == 153
+    assert result.shot_result.total_query_count == 612
+
+
+def test_confidence_bound_rejects_uncalibrated_driver_repetitions():
+    with pytest.raises(ValueError, match="no stored margin"):
+        evaluate_nand_tree(
+            (1, 0),
+            mode="query",
+            confidence=0.99,
+            driver_reps=2,
+        )
 
 
 def test_adaptive_sampling_reaches_stable_decision():
     for leaves in ((1, 0), (1, 1)):
         result = evaluate_nand_tree(
             leaves,
+            mode="query",
             adaptive=True,
             min_shots=256,
             max_shots=2048,
@@ -303,11 +318,23 @@ def test_qiskit_profile_verifier_passes_two_leaf_inputs():
     assert not result.failed_inputs
 
 
-@pytest.mark.slow
-def test_qiskit_profile_verifier_passes_all_eight_leaf_inputs():
+@pytest.mark.parametrize("leaf_count", [2, 4, 8])
+def test_sparse_sampling_margin_matches_qiskit_verification(leaf_count):
+    profile = profile_for(leaf_count)
+    verification = verify_qiskit_profile(leaf_count)
+    measured_gap = min(
+        profile.threshold - verification.largest_zero_probability,
+        verification.smallest_one_probability - profile.threshold,
+    )
+    plan = sparse_query_sampling_plan(profile)
+    assert plan.threshold_gap == pytest.approx(measured_gap)
+
+
+def test_matrix_free_profile_verifier_passes_all_eight_leaf_inputs():
     result = verify_qiskit_profile(8)
     assert result.passed
     assert result.correct == 256
+    assert result.simulation_backend == "edge"
 
 
 def test_example_usage_runs(capsys):
@@ -316,7 +343,7 @@ def test_example_usage_runs(capsys):
     assert run_example() == 0
     output = capsys.readouterr().out
     assert "expected root:" in output
-    assert "statevector:" in output
+    assert "edge simulation:" in output
     assert "sampled:" in output
 
 
@@ -326,4 +353,5 @@ def test_main_runs_qiskit_demo_without_arguments(capsys):
     assert main([]) == 0
     output = capsys.readouterr().out
     assert "Qiskit NAND-tree example" in output
-    assert "transmission probability:" in output
+    assert "dense: root=" in output
+    assert "query: root=" in output

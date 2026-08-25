@@ -3,9 +3,11 @@ from dataclasses import dataclass
 from itertools import product
 
 import numpy as np
+from scipy.sparse import issparse
+from scipy.sparse.linalg import expm_multiply
 
 from .exact_walk import initial_runway_packet
-from .graph import NandWalkGraph, build_walk_graph
+from .graph import MatrixFormat, NandWalkGraph, build_walk_graph
 from .product_formula import run_symmetric_split
 from .profiles import AlgorithmProfile
 from .tree import NandTree, is_power_of_two
@@ -25,14 +27,18 @@ def _transmission_curve(
     packet_length: int,
     times: np.ndarray,
 ) -> np.ndarray:
-    eigenvalues, eigenvectors = np.linalg.eigh(graph.hamiltonian)
     initial = initial_runway_packet(graph, packet_length)
-    coefficients = eigenvectors.conj().T @ initial
-    phases = np.exp(-1j * np.outer(eigenvalues, times))
-    states = eigenvectors @ (coefficients[:, None] * phases)
+    if issparse(graph.hamiltonian):
+        states = np.column_stack(
+            [expm_multiply((-1j * time) * graph.hamiltonian, initial) for time in times]
+        )
+    else:
+        eigenvalues, eigenvectors = np.linalg.eigh(graph.hamiltonian)
+        coefficients = eigenvectors.conj().T @ initial
+        phases = np.exp(-1j * np.outer(eigenvalues, times))
+        states = eigenvectors @ (coefficients[:, None] * phases)
     transmitted = [
-        graph.runway_index(position)
-        for position in range(1, graph.runway_half_length + 1)
+        graph.runway_index(position) for position in range(1, graph.runway_half_length + 1)
     ]
     return np.sum(np.abs(states[transmitted, :]) ** 2, axis=0)
 
@@ -51,6 +57,7 @@ def calibrate_profile(
     packet_values: Iterable[int],
     time_values: Iterable[float],
     step_values: Iterable[int] = (1, 2, 4, 8, 16, 32),
+    matrix_format: MatrixFormat = "sparse",
 ) -> CalibrationResult:
     """Find a finite-model profile by exhaustive input separation."""
 
@@ -74,7 +81,11 @@ def calibrate_profile(
 
     for runway in runway_values:
         graphs = {
-            leaves: build_walk_graph(leaves, runway_half_length=runway)
+            leaves: build_walk_graph(
+                leaves,
+                runway_half_length=runway,
+                matrix_format=matrix_format,
+            )
             for leaves in inputs
         }
         for packet in packets:
@@ -105,7 +116,11 @@ def calibrate_profile(
         one_values: list[float] = []
         correct = 0
         for leaves in inputs:
-            graph = build_walk_graph(leaves, runway_half_length=runway)
+            graph = build_walk_graph(
+                leaves,
+                runway_half_length=runway,
+                matrix_format=matrix_format,
+            )
             probability = run_symmetric_split(
                 graph,
                 packet_length=packet,

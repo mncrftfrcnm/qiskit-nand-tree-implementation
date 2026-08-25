@@ -35,19 +35,31 @@ def test_top_level_api_is_intentional():
 def test_evaluator_uses_evaluate_name_and_keeps_legacy_alias():
     evaluator = qni.QuantumNandEvaluator((1, 0))
     result = evaluator.evaluate()
+    query = evaluator.evaluate(mode="query")
     legacy = evaluator.automatic()
 
     assert result.correct
+    assert result.mode == "dense"
+    assert isinstance(result.walk_result, evolution.QiskitWalkResult)
+    assert isinstance(query.walk_result, query_walk.QueryWalkResult)
     assert legacy.predicted_value == result.predicted_value
     assert legacy.transmission_probability == result.transmission_probability
 
 
 def test_nand_evaluation_exposes_underlying_walk_result():
-    query = qni.evaluate_nand_tree((1, 0))
-    dense = qni.evaluate_nand_tree((1, 0), mode="dense")
+    dense = qni.evaluate_nand_tree((1, 0))
+    query = qni.evaluate_nand_tree((1, 0), mode="query")
+    qiskit_query = qni.evaluate_nand_tree(
+        (1, 0),
+        mode="query",
+        simulation_backend="qiskit",
+    )
 
     assert isinstance(query.walk_result, query_walk.QueryWalkResult)
+    assert isinstance(qiskit_query.walk_result, query_walk.QueryWalkResult)
     assert isinstance(dense.walk_result, evolution.QiskitWalkResult)
+    assert query.walk_result.simulation_backend == "edge"
+    assert qiskit_query.walk_result.simulation_backend == "qiskit"
 
     # Older callers can still read the query-only compatibility property.
     assert query.statevector_result is query.walk_result

@@ -4,7 +4,7 @@ from math import ceil, log
 from typing import Literal
 
 from .exact_walk import run_continuous_walk
-from .graph import build_walk_graph
+from .graph import MatrixFormat, build_walk_graph
 from .product_formula import run_symmetric_split
 from .tree import NandTree
 
@@ -92,6 +92,16 @@ BUILTIN_PROFILES: dict[int, AlgorithmProfile] = {
     ),
 }
 
+# Exhaustive threshold gaps for the structured sparse query backend with
+# driver_reps=4. These are separate from the symmetric-split reference gaps used
+# by sampling_plan(). Regenerate them with verify_qiskit_profile() if the circuit
+# or built-in profiles change.
+SPARSE_QUERY_THRESHOLD_GAPS: dict[int, float] = {
+    2: 0.12305737668548947,
+    4: 0.12023311037246523,
+    8: 0.15311909676364793,
+}
+
 
 def profile_for(leaf_count: int) -> AlgorithmProfile:
     profile = BUILTIN_PROFILES.get(leaf_count)
@@ -107,6 +117,7 @@ def verify_profile(
     profile: AlgorithmProfile,
     *,
     mode: Literal["exact", "query"] = "query",
+    matrix_format: MatrixFormat = "sparse",
 ) -> ProfileVerification:
     zeros: list[float] = []
     ones: list[float] = []
@@ -120,9 +131,14 @@ def verify_profile(
                 runway_half_length=profile.runway_half_length,
                 packet_length=profile.packet_length,
                 time=profile.evolution_time,
+                matrix_format=matrix_format,
             ).transmission_probability
         elif mode == "query":
-            graph = build_walk_graph(leaves, runway_half_length=profile.runway_half_length)
+            graph = build_walk_graph(
+                leaves,
+                runway_half_length=profile.runway_half_length,
+                matrix_format=matrix_format,
+            )
             probability = run_symmetric_split(
                 graph,
                 packet_length=profile.packet_length,
@@ -175,4 +191,32 @@ def sampling_plan(
         threshold_gap=gap,
         shots=shots,
         mode=mode,
+    )
+
+
+def sparse_query_sampling_plan(
+    profile: AlgorithmProfile,
+    *,
+    confidence: float = 0.99,
+    driver_reps: int = 4,
+) -> SamplingPlan:
+    """Return the stored shot bound for the calibrated sparse query circuit."""
+
+    if not 0 < confidence < 1:
+        raise ValueError("confidence must be between 0 and 1")
+    if BUILTIN_PROFILES.get(profile.leaf_count) != profile or driver_reps != 4:
+        raise ValueError(
+            "confidence sampling has no stored margin for this sparse profile "
+            "and driver_reps value"
+        )
+
+    gap = SPARSE_QUERY_THRESHOLD_GAPS[profile.leaf_count]
+    failure = 1 - confidence
+    shots = ceil(log(1 / failure) / (2 * gap * gap))
+    return SamplingPlan(
+        confidence=confidence,
+        failure_probability=failure,
+        threshold_gap=gap,
+        shots=shots,
+        mode=f"query-sparse-driver-reps-{driver_reps}",
     )

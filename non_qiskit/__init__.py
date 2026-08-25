@@ -5,7 +5,7 @@ from .calibration import CalibrationResult, calibrate_profile
 from .classical import ClassicalResult, evaluate_bottom_up, evaluate_short_circuit
 from .convergence import ConvergencePoint, product_formula_convergence
 from .exact_walk import WalkResult, run_continuous_walk
-from .graph import NandWalkGraph, build_walk_graph
+from .graph import GraphMatrix, MatrixFormat, NandWalkGraph, build_walk_graph
 from .product_formula import SplitWalkResult, run_symmetric_split
 from .profiles import (
     BUILTIN_PROFILES,
@@ -14,6 +14,7 @@ from .profiles import (
     SamplingPlan,
     profile_for,
     sampling_plan,
+    sparse_query_sampling_plan,
     verify_profile,
 )
 from .scattering import ScatteringResult, analyze_scattering
@@ -25,6 +26,8 @@ __all__ = [
     "CalibrationResult",
     "ClassicalResult",
     "ConvergencePoint",
+    "GraphMatrix",
+    "MatrixFormat",
     "NandTree",
     "NandWalkGraph",
     "ProfileVerification",
@@ -43,6 +46,7 @@ __all__ = [
     "run_continuous_walk",
     "run_symmetric_split",
     "sampling_plan",
+    "sparse_query_sampling_plan",
     "scaling_report",
     "verify_profile",
 ]

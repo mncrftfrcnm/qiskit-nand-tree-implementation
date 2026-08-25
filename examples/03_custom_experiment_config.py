@@ -14,16 +14,22 @@ def main() -> None:
         query_steps=2,
         threshold=0.37,
     )
-    result = evaluate_nand_tree(leaves, experiment=experiment)
+    results = [
+        evaluate_nand_tree(leaves, mode="dense", experiment=experiment),
+        evaluate_nand_tree(leaves, mode="query", experiment=experiment),
+    ]
 
     print("Custom finite experiment")
     print("configuration:", experiment)
-    print("predicted root:", result.predicted_value)
-    print("transmission probability:", f"{result.transmission_probability:.6f}")
+    for result in results:
+        print(
+            f"{result.mode}: root={result.predicted_value}, "
+            f"transmission={result.transmission_probability:.6f}"
+        )
 
     # These settings match the calibrated two-leaf profile.  Different custom
     # settings need their own calibration before their Boolean prediction is trusted.
-    assert result.correct
+    assert all(result.correct for result in results)
     print("Example completed successfully.")
 
 
