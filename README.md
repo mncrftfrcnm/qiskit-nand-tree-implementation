@@ -10,6 +10,8 @@ implementation.
 It is not the unbounded asymptotic algorithm yet. The repository is mainly a
 place to check the pieces of that algorithm on instances small enough to inspect.
 
+(as of now it is not ready to be used in production, but I hope I will continue developing this project)
+
 ## Quick start
 
 The package supports Python 3.10+ and Qiskit `>=2.4,<3`.
