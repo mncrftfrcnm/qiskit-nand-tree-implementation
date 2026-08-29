@@ -42,7 +42,7 @@ The two modes have different jobs:
 
 `dense` is the default because it is the reference calculation. Use
 `mode="query"` when you want the query algorithm, sampling, or the matrix-free
-simulator.
+simulator(and also it is faster and uses less resources).
 
 ## The finite walk
 
