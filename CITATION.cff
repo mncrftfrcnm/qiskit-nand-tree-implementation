@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "Qiskit NAND-tree implementation"
+type: software
+authors:
+  - name: "mncrftfrcnm"
+version: 0.6.2
+date-released: 2026-08-12
+repository-code: "https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation"
+license: Apache-2.0
+keywords:
+  - qiskit
+  - quantum computing
+  - NAND tree
+  - quantum walk
+  - Hamiltonian simulation
