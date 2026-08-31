@@ -10,7 +10,48 @@ implementation.
 It is not the unbounded asymptotic algorithm yet. The repository is mainly a
 place to check the pieces of that algorithm on instances small enough to inspect.
 
-(as of now it is not ready to be used in production, but I hope I will continue developing this project)
+**Status:** research prototype. The bundled 2-, 4-, and 8-leaf configurations
+are validated experimentally; larger configurations remain uncalibrated and
+should not be treated as verified implementations of the asymptotic algorithm.
+
+## Scope and guarantees
+
+| Feature | Status |
+|---|---|
+| 2/4/8-leaf finite profiles | Calibrated and exhaustively checked |
+| Dense finite Hamiltonian | Reference implementation |
+| Sparse query implementation | Implemented |
+| Explicit oracle counting | Implemented |
+| Hardware-efficient realization | Not claimed |
+| Arbitrary large NAND trees | Experimental / uncalibrated |
+| Asymptotic NAND-tree algorithm | Not yet implemented |
+
+## Architecture
+
+```text
+NAND input
+   |
+   v
+NandTree
+   |
+   v
+walk graph
+   |-- dense reference --> exact Hamiltonian evolution
+   |
+   `-- query path
+         |
+         v
+       oracle
+         |
+         v
+       product formula
+         |-- Qiskit statevector
+         `-- matrix-free edge simulator
+```
+
+The high-level algorithm (`mode`), graph representation (`matrix_format`), and
+query simulation backend (`simulation_backend`) are separate choices. The
+sections below describe how they fit together.
 
 ## Quick start
 
@@ -19,6 +60,12 @@ The package supports Python 3.10+ and Qiskit `>=2.4,<3`.
 ```bash
 python -m pip install -e ".[dev]"
 python main.py
+```
+
+After installation, the packaged command also reports its installed version:
+
+```bash
+nandtree --version
 ```
 
 The public evaluator defaults to the dense reference:
@@ -42,7 +89,8 @@ The two modes have different jobs:
 
 `dense` is the default because it is the reference calculation. Use
 `mode="query"` when you want the query algorithm, sampling, or the matrix-free
-simulator(and also it is faster and uses less resources).
+simulator. For the bundled experiments, that path is typically faster and uses
+less memory than full Qiskit statevector simulation.
 
 ## The finite walk
 
@@ -300,7 +348,7 @@ more direct route toward the asymptotic model.
 
 ```bash
 python -m pytest -v -rs
-python -m pytest tests_folder/tests --run-slow -v -rs
+python -m pytest tests --run-slow -v -rs
 python -m ruff check .
 ```
 
@@ -308,6 +356,12 @@ The suite covers the oracle, workspace cleanup, query counting, dense/sparse
 agreement, product-formula convergence, sampling, the command line, and
 exhaustive classification of the calibrated profiles. CI also runs every script
 under `examples/`.
+
+## Citation
+
+GitHub can render the repository citation from [CITATION.cff](CITATION.cff).
+The citation currently uses the project author's GitHub handle, `mncrftfrcnm`,
+without requiring a legal name, affiliation, email address, or ORCID.
 
 ## References
 
