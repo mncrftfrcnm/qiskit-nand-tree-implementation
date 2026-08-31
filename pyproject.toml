@@ -34,6 +34,21 @@ plot = [
 [project.scripts]
 nandtree = "main:main"
 
+[project.urls]
+Homepage = "https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation"
+Repository = "https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation"
+Issues = "https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation/issues"
+
+[project]
+keywords = [
+    "qiskit",
+    "quantum-computing",
+    "nand-tree",
+    "quantum-walk",
+    "hamiltonian-simulation",
+    "python",
+ ]
+
 [tool.setuptools]
 py-modules = ["main", "example_usage"]
 
