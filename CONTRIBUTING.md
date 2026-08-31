@@ -30,6 +30,8 @@ Install the project and development dependencies:
 python -m pip install -e ".[dev]"
 ```
 
+`pyproject.toml` is the source of truth for runtime and development dependencies.
+
 ## Before making changes
 
 It helps to run the existing suite first:
@@ -71,7 +73,7 @@ python -m pytest -v -rs
 Some exhaustive checks are marked as slow:
 
 ```bash
-python -m pytest tests_folder/tests --run-slow -v -rs
+python -m pytest tests --run-slow -v -rs
 ```
 
 The slow suite is particularly useful after changing the oracle, query walk, calibration logic, or classification rule.
@@ -149,7 +151,8 @@ It also checks:
 - the runnable examples;
 - Ruff;
 - package building;
-- installation of the built wheel.
+- installation of the built wheel;
+- the installed `nandtree` CLI, including `nandtree --version`.
 
 The exhaustive Qiskit suite is intentionally separate because it takes longer to run.
 
