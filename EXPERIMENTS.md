@@ -47,7 +47,7 @@ python main.py qiskit-verify --leaf-count 4
 The 8-leaf Qiskit verification covers all 256 inputs and is marked as a slow test. Run the full slow suite with:
 
 ```bash
-python -m pytest tests_folder/tests --run-slow -v -rs
+python -m pytest tests --run-slow -v -rs
 ```
 
 ## How calibration chooses a profile
