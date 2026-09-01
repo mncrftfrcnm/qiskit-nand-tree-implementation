@@ -1,7 +1,6 @@
 from collections.abc import Iterable
 
 from non_qiskit.tree import NandTree
-
 from ._imports import qiskit_api
 
 
