@@ -1,7 +1,8 @@
 from collections.abc import Iterable
 
 from non_qiskit.tree import NandTree
-from ._imports import qiskit_api
+
+from ._imports import qiskit_api # imports really have to be organized this way... 
 
 
 def build_reversible_nand_circuit(
