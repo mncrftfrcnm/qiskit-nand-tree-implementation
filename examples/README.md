@@ -8,6 +8,7 @@ python -m pip install -e ".[dev]"
 for file in examples/*.py; do python "$file"; done
 ```
 
+
 | Script | What it checks |
 |---|---|
 | `01_basic_evaluation.py` | Dense and query evaluation through the public API |
