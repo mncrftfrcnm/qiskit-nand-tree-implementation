@@ -1,3 +1,7 @@
+'''
+A main file of the code.
+'''
+
 import argparse
 import json
 import sys
