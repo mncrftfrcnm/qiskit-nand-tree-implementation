@@ -101,4 +101,4 @@ Sparse storage does not remove:
 - exhaustive calibration over `2**N` inputs.
 
 Above eight leaves, provide a `NandExperimentConfig` and validate its threshold
-and step count. Faster simulation does not perform that calibration for you.
+and step count. Faster simulation does not perform that calibration for the user.
