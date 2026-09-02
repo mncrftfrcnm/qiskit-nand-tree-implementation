@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qiskit-nand-tree-implementation"
-version = "0.0.2"
+version = "0.0.3"
 description = "Prototype implementation of quantum NAND-tree evaluation with Qiskit"
 readme = "README.md"
 requires-python = ">=3.10"
