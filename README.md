@@ -300,7 +300,7 @@ more direct route toward the asymptotic model.
 
 ```bash
 python -m pytest -v -rs
-python -m pytest tests_folder/tests --run-slow -v -rs
+python -m pytest tests --run-slow -v -rs
 python -m ruff check .
 ```
 
