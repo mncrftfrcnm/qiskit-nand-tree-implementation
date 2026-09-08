@@ -18,6 +18,8 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.zip
+.env/
 
 *.tar
 *.tar.*
