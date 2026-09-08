@@ -1,6 +1,6 @@
 # Experiment notes
 
-This file records the finite-model checks behind the built-in profiles. These values are implementation results for the small graphs in this repository, not constants from the asymptotic NAND-tree analysis.
+This file records the finite-model checks behind the built-in profiles. These values are implementation results for the small graphs in this repository, not constants from the asymptotic NAND-tree analysis, at least as of now.
 
 ## Current profiles
 
@@ -93,4 +93,4 @@ These tests cover the input lookup, uncomputation, query count, workspace cleanu
 
 ## Limitation of these experiments
 
-The reference implementation uses dense finite Hamiltonian matrices, and parts of the Qiskit implementation compile small matrix evolutions into circuits. This makes exact comparisons straightforward, but it is not a scalable representation for large NAND trees.
+The reference implementation uses dense finite Hamiltonian matrices, and parts of the Qiskit implementation compile small matrix evolutions into circuits. This makes exact comparisons straightforward, but it is not a scalable representation for large NAND trees. 
