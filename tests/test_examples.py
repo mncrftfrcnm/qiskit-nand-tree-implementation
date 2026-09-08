@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = sorted((PROJECT_ROOT / "examples").glob("*.py"))
 
 
