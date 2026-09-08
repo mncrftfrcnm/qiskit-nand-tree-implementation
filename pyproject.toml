@@ -62,7 +62,7 @@ include = [
 
 [tool.pytest.ini_options]
 addopts = "-q"
-testpaths = ["tests_folder/tests"]
+testpaths = ["tests"]
 markers = [
   "slow: exhaustive Qiskit checks",
 ]
