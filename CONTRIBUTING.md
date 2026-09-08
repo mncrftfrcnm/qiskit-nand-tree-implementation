@@ -2,7 +2,8 @@
 
 Thanks for taking an interest in the project.
 
-This repository is still a prototype, so small changes that are easy to understand and verify are generally more useful than large rewrites.
+This repository is still a prototype, and although every change is welcome, the smaller updates, that are easy to understand, are more likely to be accepted. 
+Big rewrites are also great, but could take a lot of time to process.
 
 ## Setup
 
@@ -71,7 +72,7 @@ python -m pytest -v -rs
 Some exhaustive checks are marked as slow:
 
 ```bash
-python -m pytest tests_folder/tests --run-slow -v -rs
+python -m pytest tests --run-slow -v -rs
 ```
 
 The slow suite is particularly useful after changing the oracle, query walk, calibration logic, or classification rule.
@@ -90,7 +91,7 @@ Many simple lint problems can be fixed automatically:
 python -m ruff check . --fix
 ```
 
-Keep the implementation fairly direct.
+Keep the implementations direct and cohesive.
 
 The circuit code is easier to review when register operations and oracle calls are visible instead of hidden behind unnecessary abstraction.
 
@@ -130,6 +131,8 @@ python main.py
 python example_usage.py
 ```
 
+Also, pull requests should auto-run these checks on github, but I am not entirely sure
+
 A pull request should briefly explain:
 
 - what changed;
@@ -153,4 +156,4 @@ It also checks:
 
 The exhaustive Qiskit suite is intentionally separate because it takes longer to run.
 
-A pull request should normally have a green CI run before it is merged.
+A pull request should normally have a green CI run before it is merged(but if the owner of the repository - me, decides to merge it, he can.).
