@@ -19,10 +19,6 @@ class NandTree:
             raise ValueError("the number of leaves must be a non-zero power of two")
         if any(bit not in (0, 1) for bit in raw_values):
             raise ValueError("leaves must contain only 0 and 1")
-
-        # Validate before conversion so values such as 0.9 or 1.9 are not
-        # silently truncated into valid bits. Exact numeric 0/1 values remain
-        # accepted for backward compatibility.
         values = tuple(int(bit) for bit in raw_values)
         object.__setattr__(self, "leaves", values)
 
