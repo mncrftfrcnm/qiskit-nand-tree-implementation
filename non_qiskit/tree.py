@@ -1,7 +1,6 @@
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from math import log2
-from operator import index
 
 
 def is_power_of_two(value: int) -> bool:
@@ -18,18 +17,14 @@ class NandTree:
         raw_values = tuple(leaves)
         if not is_power_of_two(len(raw_values)):
             raise ValueError("the number of leaves must be a non-zero power of two")
+        if any(bit not in (0, 1) for bit in raw_values):
+            raise ValueError("leaves must contain only 0 and 1")
 
-        values: list[int] = []
-        for bit in raw_values:
-            try:
-                value = index(bit)
-            except TypeError as error:
-                raise TypeError("leaves must contain only integer 0 and 1 values") from error
-            if value not in (0, 1):
-                raise ValueError("leaves must contain only 0 and 1")
-            values.append(value)
-
-        object.__setattr__(self, "leaves", tuple(values))
+        # Validate before conversion so values such as 0.9 or 1.9 are not
+        # silently truncated into valid bits. Exact numeric 0/1 values remain
+        # accepted for backward compatibility.
+        values = tuple(int(bit) for bit in raw_values)
+        object.__setattr__(self, "leaves", values)
 
     @property
     def leaf_count(self) -> int:
