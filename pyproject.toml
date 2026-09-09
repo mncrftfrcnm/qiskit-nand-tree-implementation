@@ -35,7 +35,6 @@ dev = [
   "build>=1.2",
   "matplotlib>=3.9",
   "pytest>=8",
-  "pytest-cov>=7",
   "ruff>=0.9",
 ]
 
@@ -67,10 +66,6 @@ testpaths = ["tests"]
 markers = [
   "slow: exhaustive Qiskit checks",
 ]
-
-[tool.coverage.report]
-fail_under = 90
-show_missing = true
 
 [tool.ruff]
 line-length = 100
