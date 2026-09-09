@@ -39,6 +39,13 @@ def test_tree_rejects_invalid_leaves():
         NandTree((0, 2))
 
 
+def test_tree_rejects_non_integer_leaf_values():
+    with pytest.raises(TypeError):
+        NandTree((0.5, 1))
+    with pytest.raises(TypeError):
+        NandTree(("0", "1"))
+
+
 @pytest.mark.parametrize("leaf_count", [2, 4, 8])
 def test_scattering_separates_inputs_near_zero_energy(leaf_count):
     for leaves in product((0, 1), repeat=leaf_count):
