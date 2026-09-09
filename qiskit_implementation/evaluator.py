@@ -8,6 +8,7 @@ from .classifier import EvaluationMode, NandEvaluation, evaluate_nand_tree
 from .evolution import CircuitMethod, QiskitWalkResult, run_qiskit_walk
 from .phase_probe import PhaseProbeResult, run_phase_probe
 from .query_walk import EvolutionBackend, QueryWalkResult, SimulationBackend, run_query_walk
+from .walk_parameters import NandExperimentConfig
 
 
 @dataclass(frozen=True)
@@ -28,6 +29,7 @@ class QuantumNandEvaluator:
         matrix_format: MatrixFormat = "sparse",
         evolution_backend: EvolutionBackend = "sparse",
         simulation_backend: SimulationBackend = "auto",
+        experiment: NandExperimentConfig | None = None,
     ):
         tree = NandTree(leaves)
         self.leaves = tree.leaves
@@ -36,6 +38,7 @@ class QuantumNandEvaluator:
         self.matrix_format = matrix_format
         self.evolution_backend = evolution_backend
         self.simulation_backend = simulation_backend
+        self.experiment = experiment
 
     @property
     def classical_value(self) -> int:
@@ -48,17 +51,25 @@ class QuantumNandEvaluator:
         shots: int | None = None,
         seed: int | None = None,
     ) -> NandEvaluation:
+        if self.experiment is None and (
+            self.runway_half_length != 6 or self.packet_length != 4
+        ):
+            raise ValueError(
+                "evaluate() uses calibrated profiles unless an experiment is supplied; "
+                "pass experiment=NandExperimentConfig(...) for custom walk settings"
+            )
         return evaluate_nand_tree(
             self.leaves,
             mode=mode,
             shots=shots,
             seed=seed,
+            experiment=self.experiment,
             matrix_format=self.matrix_format,
             evolution_backend=self.evolution_backend,
             simulation_backend=self.simulation_backend,
         )
 
-    # Kept as a compatibility alias for code written against versions <= 0.6.2.
+    # Compatibility alias for callers that used the older method name.
     automatic = evaluate
 
     def dense_walk(
