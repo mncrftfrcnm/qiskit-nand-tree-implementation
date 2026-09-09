@@ -270,7 +270,9 @@ def test_count_summary_excludes_dirty_workspace_from_decision():
     assert result.tree == 10
     assert result.workspace == 10
     assert result.valid_shots == 90
-    assert np.isclose(result.transmission_probability, 2 / 3)
+    assert np.isclose(result.transmission_probability, 0.60)
+    assert np.isclose(result.conditional_transmission_probability, 2 / 3)
+    assert np.isclose(result.valid_probability, 0.90)
     assert result.predicted_value == 1
     assert result.query_count == 4
     assert result.total_query_count == 400
@@ -308,7 +310,26 @@ def test_adaptive_sampling_reaches_stable_decision():
         assert result.correct
         assert result.shot_result is not None
         assert result.shot_result.stable_decision
+        assert result.shot_result.confidence == pytest.approx(0.95)
         assert 256 <= result.shot_result.shots <= 2048
+
+
+def test_adaptive_sampling_accepts_requested_confidence():
+    result = evaluate_nand_tree(
+        (1, 0),
+        mode="query",
+        adaptive=True,
+        confidence=0.99,
+        min_shots=256,
+        max_shots=2048,
+        batch_shots=128,
+        seed=23,
+    )
+
+    assert result.correct
+    assert result.sampling_plan is None
+    assert result.shot_result is not None
+    assert result.shot_result.confidence == pytest.approx(0.99)
 
 
 def test_qiskit_profile_verifier_passes_two_leaf_inputs():
