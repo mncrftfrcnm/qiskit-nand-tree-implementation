@@ -97,7 +97,7 @@ def parser() -> argparse.ArgumentParser:
         "--mode",
         choices=("query", "dense"),
         default="dense",
-        help="dense is the exact small-matrix default; query selects the faster sparse path, but is less accurate",
+        help="dense is the exact small-matrix default; query selects the faster sparse path",
     )
     evaluate.add_argument("--shots", type=int)
     evaluate.add_argument("--confidence", type=float)
