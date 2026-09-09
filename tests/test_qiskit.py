@@ -270,8 +270,8 @@ def test_count_summary_excludes_dirty_workspace_from_decision():
     assert result.tree == 10
     assert result.workspace == 10
     assert result.valid_shots == 90
-    assert np.isclose(result.transmission_probability, 0.60)
-    assert np.isclose(result.conditional_transmission_probability, 2 / 3)
+    assert np.isclose(result.transmission_probability, 2 / 3)
+    assert np.isclose(result.raw_transmission_probability, 0.60)
     assert np.isclose(result.valid_probability, 0.90)
     assert result.predicted_value == 1
     assert result.query_count == 4
