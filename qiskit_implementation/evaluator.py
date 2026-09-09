@@ -51,13 +51,9 @@ class QuantumNandEvaluator:
         shots: int | None = None,
         seed: int | None = None,
     ) -> NandEvaluation:
-        if self.experiment is None and (
-            self.runway_half_length != 6 or self.packet_length != 4
-        ):
-            raise ValueError(
-                "evaluate() uses calibrated profiles unless an experiment is supplied; "
-                "pass experiment=NandExperimentConfig(...) for custom walk settings"
-            )
+        # Preserve the historical behavior: constructor runway/packet settings
+        # configure the low-level walk helpers, while evaluate() uses a calibrated
+        # profile unless an explicit experiment is supplied.
         return evaluate_nand_tree(
             self.leaves,
             mode=mode,
