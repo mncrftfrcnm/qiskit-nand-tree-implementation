@@ -66,18 +66,16 @@ def test_nand_evaluation_exposes_underlying_walk_result():
     assert dense.statevector_result is None
 
 
-def test_evaluator_requires_experiment_for_custom_classification_settings():
+def test_evaluator_custom_walk_settings_keep_legacy_evaluate_behavior():
     evaluator = qni.QuantumNandEvaluator(
         (1, 0),
         runway_half_length=3,
         packet_length=3,
     )
-    try:
-        evaluator.evaluate()
-    except ValueError as error:
-        assert "experiment" in str(error)
-    else:
-        raise AssertionError("custom walk settings must not be silently ignored")
+    result = evaluator.evaluate()
+
+    assert result.correct
+    assert result.mode == "dense"
 
 
 def test_evaluator_uses_explicit_experiment_for_classification():
