@@ -47,7 +47,6 @@ Sampling belongs to query mode in the current API:
 ```bash
 python main.py evaluate --leaves 10 --mode query --shots 512 --seed 17
 python main.py evaluate --leaves 10 --mode query --confidence 0.99 --seed 17
-python main.py evaluate --leaves 10 --mode query --adaptive --confidence 0.99 --seed 17
 ```
 
 ## Custom size
