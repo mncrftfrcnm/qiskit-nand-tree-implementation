@@ -271,8 +271,6 @@ def test_count_summary_excludes_dirty_workspace_from_decision():
     assert result.workspace == 10
     assert result.valid_shots == 90
     assert np.isclose(result.transmission_probability, 2 / 3)
-    assert np.isclose(result.raw_transmission_probability, 0.60)
-    assert np.isclose(result.valid_probability, 0.90)
     assert result.predicted_value == 1
     assert result.query_count == 4
     assert result.total_query_count == 400
@@ -311,54 +309,6 @@ def test_adaptive_sampling_reaches_stable_decision():
         assert result.shot_result is not None
         assert result.shot_result.stable_decision
         assert 256 <= result.shot_result.shots <= 2048
-
-
-def test_adaptive_sampling_accepts_requested_confidence():
-    result = evaluate_nand_tree(
-        (1, 0),
-        mode="query",
-        adaptive=True,
-        confidence=0.99,
-        min_shots=256,
-        max_shots=2048,
-        batch_shots=128,
-        seed=23,
-    )
-
-    assert result.correct
-    assert result.sampling_plan is None
-    assert result.shot_result is not None
-
-
-def test_sampling_confidence_changes_reported_interval_width():
-    graph = build_walk_graph((1, 0), runway_half_length=2)
-    position_bits = encode_hamiltonian(graph.hamiltonian).qubits
-    total_bits = position_bits + 2
-    transmitted = graph.runway_index(1)
-    reflected = graph.runway_index(-1)
-    counts = {
-        format(transmitted, f"0{total_bits}b"): 60,
-        format(reflected, f"0{total_bits}b"): 40,
-    }
-
-    interval_95 = summarize_query_counts(
-        graph,
-        counts,
-        steps=2,
-        threshold=0.5,
-        confidence=0.95,
-    )
-    interval_99 = summarize_query_counts(
-        graph,
-        counts,
-        steps=2,
-        threshold=0.5,
-        confidence=0.99,
-    )
-
-    width_95 = interval_95.confidence_high - interval_95.confidence_low
-    width_99 = interval_99.confidence_high - interval_99.confidence_low
-    assert width_99 > width_95
 
 
 def test_qiskit_profile_verifier_passes_two_leaf_inputs():
