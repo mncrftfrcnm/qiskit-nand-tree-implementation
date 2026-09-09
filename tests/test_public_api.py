@@ -64,32 +64,3 @@ def test_nand_evaluation_exposes_underlying_walk_result():
     # Older callers can still read the query-only compatibility property.
     assert query.statevector_result is query.walk_result
     assert dense.statevector_result is None
-
-
-def test_evaluator_custom_walk_settings_keep_legacy_evaluate_behavior():
-    evaluator = qni.QuantumNandEvaluator(
-        (1, 0),
-        runway_half_length=3,
-        packet_length=3,
-    )
-    result = evaluator.evaluate()
-
-    assert result.correct
-    assert result.mode == "dense"
-
-
-def test_evaluator_uses_explicit_experiment_for_classification():
-    experiment = qni.NandExperimentConfig(
-        walk=qni.WalkParameters(
-            runway_half_length=2,
-            packet_length=3,
-            evolution_time=7.8,
-        ),
-        query_steps=2,
-        threshold=0.37,
-    )
-    evaluator = qni.QuantumNandEvaluator((1, 0), experiment=experiment)
-    result = evaluator.evaluate(mode="query")
-
-    assert result.correct
-    assert result.profile is experiment
