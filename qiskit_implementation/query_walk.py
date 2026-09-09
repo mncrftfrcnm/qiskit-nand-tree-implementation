@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
 from math import log2
+from statistics import NormalDist
 from typing import Literal
 
 import numpy as np
@@ -44,6 +45,9 @@ class QueryShotResult:
     padding: int
     workspace: int
     transmission_probability: float
+    conditional_transmission_probability: float
+    valid_probability: float
+    confidence: float
     confidence_low: float
     confidence_high: float
     predicted_value: int
@@ -381,7 +385,15 @@ def run_query_walk(
     return simulate_query_walk(graph, circuit, steps=steps, threshold=threshold)
 
 
-def _wilson_interval(successes: int, total: int, z: float = 1.96):
+def _wilson_interval(
+    successes: int,
+    total: int,
+    *,
+    confidence: float = 0.95,
+) -> tuple[float, float]:
+    if not 0 < confidence < 1:
+        raise ValueError("confidence must be between 0 and 1")
+    z = NormalDist().inv_cdf((1.0 + confidence) / 2.0)
     p = successes / total
     denominator = 1 + z * z / total
     center = (p + z * z / (2 * total)) / denominator
@@ -396,11 +408,12 @@ def _edge_sample_summary(
     steps: int,
     threshold: float,
     batches: int,
+    confidence: float,
 ) -> QueryShotResult:
     transmitted, reflected, tree = (int(value) for value in counts)
     shots = transmitted + reflected + tree
     probability = transmitted / shots
-    low, high = _wilson_interval(transmitted, shots)
+    low, high = _wilson_interval(transmitted, shots, confidence=confidence)
     predicted = int(probability >= threshold)
     stable = low >= threshold if predicted else high < threshold
     return QueryShotResult(
@@ -412,6 +425,9 @@ def _edge_sample_summary(
         padding=0,
         workspace=0,
         transmission_probability=probability,
+        conditional_transmission_probability=probability,
+        valid_probability=1.0,
+        confidence=confidence,
         confidence_low=low,
         confidence_high=high,
         predicted_value=predicted,
@@ -442,6 +458,7 @@ def sample_edge_query_walk(
     threshold: float,
     shots: int = 4096,
     seed: int | None = None,
+    confidence: float = 0.95,
 ) -> QueryShotResult:
     """Sample the ideal clean-register distribution from an edge result."""
 
@@ -454,6 +471,7 @@ def sample_edge_query_walk(
         steps=result.steps,
         threshold=threshold,
         batches=1,
+        confidence=confidence,
     )
 
 
@@ -465,6 +483,7 @@ def sample_edge_query_walk_adaptive(
     max_shots: int = 8192,
     batch_shots: int = 256,
     seed: int | None = None,
+    confidence: float = 0.95,
 ) -> QueryShotResult:
     """Adaptively sample a matrix-free edge-simulation result."""
 
@@ -490,6 +509,7 @@ def sample_edge_query_walk_adaptive(
             steps=result.steps,
             threshold=threshold,
             batches=batches,
+            confidence=confidence,
         )
         if total >= min_shots and summary.stable_decision:
             return summary
@@ -505,6 +525,7 @@ def summarize_query_counts(
     steps: int,
     threshold: float,
     batches: int = 1,
+    confidence: float = 0.95,
 ) -> QueryShotResult:
     position_bits = qubits_for_dimension(graph.size)
     position_mask = (1 << position_bits) - 1
@@ -535,8 +556,10 @@ def summarize_query_counts(
     if shots < 1 or valid < 1:
         raise ValueError("counts contain no valid position measurements")
 
-    probability = transmitted / valid
-    low, high = _wilson_interval(transmitted, valid)
+    probability = transmitted / shots
+    conditional_probability = transmitted / valid
+    valid_probability = valid / shots
+    low, high = _wilson_interval(transmitted, shots, confidence=confidence)
     predicted = int(probability >= threshold)
     stable = low >= threshold if predicted else high < threshold
 
@@ -549,6 +572,9 @@ def summarize_query_counts(
         padding=padding,
         workspace=workspace,
         transmission_probability=probability,
+        conditional_transmission_probability=conditional_probability,
+        valid_probability=valid_probability,
+        confidence=confidence,
         confidence_low=low,
         confidence_high=high,
         predicted_value=predicted,
@@ -574,6 +600,7 @@ def sample_query_walk(
     threshold: float,
     shots: int = 4096,
     seed: int | None = None,
+    confidence: float = 0.95,
 ) -> QueryShotResult:
     if shots < 1:
         raise ValueError("shots must be positive")
@@ -582,6 +609,7 @@ def sample_query_walk(
         _measure(circuit, shots, seed),
         steps=steps,
         threshold=threshold,
+        confidence=confidence,
     )
 
 
@@ -595,6 +623,7 @@ def sample_query_walk_adaptive(
     max_shots: int = 8192,
     batch_shots: int = 256,
     seed: int | None = None,
+    confidence: float = 0.95,
 ) -> QueryShotResult:
     if min_shots < 1:
         raise ValueError("min_shots must be positive")
@@ -621,6 +650,7 @@ def sample_query_walk_adaptive(
             steps=steps,
             threshold=threshold,
             batches=batches,
+            confidence=confidence,
         )
         if total >= min_shots and result.stable_decision:
             return result
