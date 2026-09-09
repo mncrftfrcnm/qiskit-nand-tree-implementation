@@ -8,7 +8,6 @@ from .classifier import EvaluationMode, NandEvaluation, evaluate_nand_tree
 from .evolution import CircuitMethod, QiskitWalkResult, run_qiskit_walk
 from .phase_probe import PhaseProbeResult, run_phase_probe
 from .query_walk import EvolutionBackend, QueryWalkResult, SimulationBackend, run_query_walk
-from .walk_parameters import NandExperimentConfig
 
 
 @dataclass(frozen=True)
@@ -29,7 +28,6 @@ class QuantumNandEvaluator:
         matrix_format: MatrixFormat = "sparse",
         evolution_backend: EvolutionBackend = "sparse",
         simulation_backend: SimulationBackend = "auto",
-        experiment: NandExperimentConfig | None = None,
     ):
         tree = NandTree(leaves)
         self.leaves = tree.leaves
@@ -38,7 +36,6 @@ class QuantumNandEvaluator:
         self.matrix_format = matrix_format
         self.evolution_backend = evolution_backend
         self.simulation_backend = simulation_backend
-        self.experiment = experiment
 
     @property
     def classical_value(self) -> int:
@@ -51,21 +48,17 @@ class QuantumNandEvaluator:
         shots: int | None = None,
         seed: int | None = None,
     ) -> NandEvaluation:
-        # Preserve the historical behavior: constructor runway/packet settings
-        # configure the low-level walk helpers, while evaluate() uses a calibrated
-        # profile unless an explicit experiment is supplied.
         return evaluate_nand_tree(
             self.leaves,
             mode=mode,
             shots=shots,
             seed=seed,
-            experiment=self.experiment,
             matrix_format=self.matrix_format,
             evolution_backend=self.evolution_backend,
             simulation_backend=self.simulation_backend,
         )
 
-    # Compatibility alias for callers that used the older method name.
+    # Kept as a compatibility alias for code written against versions <= 0.6.2.
     automatic = evaluate
 
     def dense_walk(
