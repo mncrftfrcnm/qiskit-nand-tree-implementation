@@ -53,7 +53,6 @@ class QueryShotResult:
     total_query_count: int
     batches: int = 1
     simulation_backend: str = "qiskit"
-    confidence: float = 0.95
 
     @property
     def leakage_shots(self) -> int:
@@ -439,7 +438,6 @@ def _edge_sample_summary(
         total_query_count=2 * steps * shots,
         batches=batches,
         simulation_backend="edge",
-        confidence=confidence,
     )
 
 
@@ -475,7 +473,6 @@ def sample_edge_query_walk(
         steps=result.steps,
         threshold=threshold,
         batches=1,
-        confidence=confidence,
     )
 
 
@@ -581,7 +578,6 @@ def summarize_query_counts(
         query_count=2 * steps,
         total_query_count=2 * steps * shots,
         batches=batches,
-        confidence=confidence,
     )
 
 
@@ -609,7 +605,6 @@ def sample_query_walk(
         _measure(circuit, shots, seed),
         steps=steps,
         threshold=threshold,
-        confidence=confidence,
     )
 
 
