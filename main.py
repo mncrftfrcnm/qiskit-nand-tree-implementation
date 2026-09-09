@@ -1,5 +1,5 @@
 '''
-A main file of the code.
+A main file of the project.
 '''
 
 import argparse
@@ -97,7 +97,7 @@ def parser() -> argparse.ArgumentParser:
         "--mode",
         choices=("query", "dense"),
         default="dense",
-        help="dense is the exact small-matrix default; query selects the faster sparse path",
+        help="dense is the exact small-matrix default; query selects the faster sparse path, but is less accurate",
     )
     evaluate.add_argument("--shots", type=int)
     evaluate.add_argument("--confidence", type=float)
@@ -314,6 +314,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             driver_reps=args.driver_reps,
         )
         print_json(_evaluation_payload(result))
+
         return 0 if result.correct else 2
 
     if args.command == "verify":
