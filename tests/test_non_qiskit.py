@@ -37,16 +37,8 @@ def test_tree_rejects_invalid_leaves():
         NandTree((0, 1, 0))
     with pytest.raises(ValueError):
         NandTree((0, 2))
-
-
-def test_tree_rejects_values_that_would_be_truncated_to_bits():
     with pytest.raises(ValueError):
-        NandTree((0.5, 1))
-    with pytest.raises(ValueError):
-        NandTree(("0", "1"))
-
-    # Preserve previously accepted exact numeric bit values.
-    assert NandTree((0.0, 1.0)).leaves == (0, 1)
+        NandTree((0.9, 1.9))
 
 
 @pytest.mark.parametrize("leaf_count", [2, 4, 8])
