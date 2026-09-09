@@ -310,7 +310,6 @@ def test_adaptive_sampling_reaches_stable_decision():
         assert result.correct
         assert result.shot_result is not None
         assert result.shot_result.stable_decision
-        assert result.shot_result.confidence == pytest.approx(0.95)
         assert 256 <= result.shot_result.shots <= 2048
 
 
@@ -329,7 +328,37 @@ def test_adaptive_sampling_accepts_requested_confidence():
     assert result.correct
     assert result.sampling_plan is None
     assert result.shot_result is not None
-    assert result.shot_result.confidence == pytest.approx(0.99)
+
+
+def test_sampling_confidence_changes_reported_interval_width():
+    graph = build_walk_graph((1, 0), runway_half_length=2)
+    position_bits = encode_hamiltonian(graph.hamiltonian).qubits
+    total_bits = position_bits + 2
+    transmitted = graph.runway_index(1)
+    reflected = graph.runway_index(-1)
+    counts = {
+        format(transmitted, f"0{total_bits}b"): 60,
+        format(reflected, f"0{total_bits}b"): 40,
+    }
+
+    interval_95 = summarize_query_counts(
+        graph,
+        counts,
+        steps=2,
+        threshold=0.5,
+        confidence=0.95,
+    )
+    interval_99 = summarize_query_counts(
+        graph,
+        counts,
+        steps=2,
+        threshold=0.5,
+        confidence=0.99,
+    )
+
+    width_95 = interval_95.confidence_high - interval_95.confidence_low
+    width_99 = interval_99.confidence_high - interval_99.confidence_low
+    assert width_99 > width_95
 
 
 def test_qiskit_profile_verifier_passes_two_leaf_inputs():
