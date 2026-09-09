@@ -45,7 +45,7 @@ class QueryShotResult:
     padding: int
     workspace: int
     transmission_probability: float
-    conditional_transmission_probability: float
+    raw_transmission_probability: float
     valid_probability: float
     confidence: float
     confidence_low: float
@@ -425,7 +425,7 @@ def _edge_sample_summary(
         padding=0,
         workspace=0,
         transmission_probability=probability,
-        conditional_transmission_probability=probability,
+        raw_transmission_probability=probability,
         valid_probability=1.0,
         confidence=confidence,
         confidence_low=low,
@@ -556,10 +556,10 @@ def summarize_query_counts(
     if shots < 1 or valid < 1:
         raise ValueError("counts contain no valid position measurements")
 
-    probability = transmitted / shots
-    conditional_probability = transmitted / valid
+    probability = transmitted / valid
+    raw_probability = transmitted / shots
     valid_probability = valid / shots
-    low, high = _wilson_interval(transmitted, shots, confidence=confidence)
+    low, high = _wilson_interval(transmitted, valid, confidence=confidence)
     predicted = int(probability >= threshold)
     stable = low >= threshold if predicted else high < threshold
 
@@ -572,7 +572,7 @@ def summarize_query_counts(
         padding=padding,
         workspace=workspace,
         transmission_probability=probability,
-        conditional_transmission_probability=conditional_probability,
+        raw_transmission_probability=raw_probability,
         valid_probability=valid_probability,
         confidence=confidence,
         confidence_low=low,
