@@ -33,6 +33,13 @@ print(dense.predicted_value, dense.transmission_probability)
 print(query.predicted_value, query.transmission_probability, query.query_count)
 ```
 
+`QuantumNandEvaluator` also keeps its existing wrapper behavior for compatibility:
+constructor `runway_half_length` and `packet_length` configure the low-level
+`dense_walk()`, `query_walk()`, `probe()`, and `run()` helpers. The
+`evaluate()`/legacy `automatic()` classifier continues to use a calibrated
+profile unless an explicit `NandExperimentConfig` is supplied with
+`experiment=...`.
+
 The two modes have different jobs:
 
 | Mode | Intended use | Main cost |
