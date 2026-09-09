@@ -45,9 +45,6 @@ class QueryShotResult:
     padding: int
     workspace: int
     transmission_probability: float
-    raw_transmission_probability: float
-    valid_probability: float
-    confidence: float
     confidence_low: float
     confidence_high: float
     predicted_value: int
@@ -56,10 +53,19 @@ class QueryShotResult:
     total_query_count: int
     batches: int = 1
     simulation_backend: str = "qiskit"
+    confidence: float = 0.95
 
     @property
     def leakage_shots(self) -> int:
         return self.padding + self.workspace
+
+    @property
+    def raw_transmission_probability(self) -> float:
+        return self.transmitted / self.shots
+
+    @property
+    def valid_probability(self) -> float:
+        return self.valid_shots / self.shots
 
 
 def resolve_simulation_backend(
@@ -425,9 +431,6 @@ def _edge_sample_summary(
         padding=0,
         workspace=0,
         transmission_probability=probability,
-        raw_transmission_probability=probability,
-        valid_probability=1.0,
-        confidence=confidence,
         confidence_low=low,
         confidence_high=high,
         predicted_value=predicted,
@@ -436,6 +439,7 @@ def _edge_sample_summary(
         total_query_count=2 * steps * shots,
         batches=batches,
         simulation_backend="edge",
+        confidence=confidence,
     )
 
 
@@ -557,8 +561,6 @@ def summarize_query_counts(
         raise ValueError("counts contain no valid position measurements")
 
     probability = transmitted / valid
-    raw_probability = transmitted / shots
-    valid_probability = valid / shots
     low, high = _wilson_interval(transmitted, valid, confidence=confidence)
     predicted = int(probability >= threshold)
     stable = low >= threshold if predicted else high < threshold
@@ -572,9 +574,6 @@ def summarize_query_counts(
         padding=padding,
         workspace=workspace,
         transmission_probability=probability,
-        raw_transmission_probability=raw_probability,
-        valid_probability=valid_probability,
-        confidence=confidence,
         confidence_low=low,
         confidence_high=high,
         predicted_value=predicted,
@@ -582,6 +581,7 @@ def summarize_query_counts(
         query_count=2 * steps,
         total_query_count=2 * steps * shots,
         batches=batches,
+        confidence=confidence,
     )
 
 
