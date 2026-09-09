@@ -92,12 +92,12 @@ def evaluate_nand_tree(
     else:
         configuration = experiment
 
-    if shots is not None and (confidence is not None or adaptive):
-        raise ValueError("shots cannot be combined with confidence or adaptive sampling")
-    requested_sampling = shots is not None or confidence is not None or adaptive
+    requested = sum(value is not None for value in (shots, confidence)) + int(adaptive)
+    if requested > 1:
+        raise ValueError("choose one of shots, confidence, or adaptive sampling")
 
     if mode == "dense":
-        if requested_sampling:
+        if requested:
             raise ValueError("sampling is available only in query mode")
         result = run_qiskit_walk(
             tree.leaves,
@@ -125,8 +125,7 @@ def evaluate_nand_tree(
         raise ValueError(f"unknown evaluation mode: {mode}")
 
     plan = None
-    interval_confidence = 0.95 if confidence is None else confidence
-    if confidence is not None and not adaptive:
+    if confidence is not None:
         if isinstance(configuration, NandExperimentConfig):
             raise ValueError("confidence sampling requires a calibrated profile")
         if evolution_backend == "sparse":
@@ -162,7 +161,6 @@ def evaluate_nand_tree(
                 max_shots=max_shots,
                 batch_shots=batch_shots,
                 seed=seed,
-                confidence=interval_confidence,
             )
             return _sampled_evaluation(tree, configuration, sampled, plan)
         if shots is not None:
@@ -171,7 +169,6 @@ def evaluate_nand_tree(
                 threshold=experiment.threshold,
                 shots=shots,
                 seed=seed,
-                confidence=interval_confidence,
             )
             return _sampled_evaluation(tree, configuration, sampled, plan)
         return _walk_evaluation(tree, configuration, result)
@@ -197,7 +194,6 @@ def evaluate_nand_tree(
             max_shots=max_shots,
             batch_shots=batch_shots,
             seed=seed,
-            confidence=interval_confidence,
         )
         return _sampled_evaluation(tree, configuration, sampled, plan)
 
@@ -209,7 +205,6 @@ def evaluate_nand_tree(
             threshold=experiment.threshold,
             shots=shots,
             seed=seed,
-            confidence=interval_confidence,
         )
         return _sampled_evaluation(tree, configuration, sampled, plan)
 
