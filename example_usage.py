@@ -1,3 +1,5 @@
+'''a small example of using the repo, and qiskit implementation. '''
+
 import sys
 
 from qiskit_implementation import evaluate_nand_tree
