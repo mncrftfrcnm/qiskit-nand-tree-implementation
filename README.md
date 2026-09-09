@@ -166,9 +166,12 @@ Sampling is a separate issue. Any finite-shot result is probabilistic, even when
 the state being sampled was calculated exactly. Sampling is available only in
 query mode in the current API.
 
-Confidence-based sampling uses stored sparse-backend margins for the built-in
-profiles. If `driver_reps` or the profile changes, the API rejects a requested
-confidence instead of reusing the wrong bound.
+Confidence-based fixed-shot sampling uses stored sparse-backend margins for the
+built-in profiles. If `driver_reps` or the profile changes, the API rejects a
+requested fixed-shot confidence instead of reusing the wrong bound.
+
+Adaptive sampling may also use an explicit confidence level for its Wilson
+interval. If omitted, adaptive sampling uses 95% confidence.
 
 ```python
 sampled = evaluate_nand_tree(
@@ -177,7 +180,20 @@ sampled = evaluate_nand_tree(
     shots=4096,
     seed=7,
 )
+
+adaptive = evaluate_nand_tree(
+    [1, 0, 1, 1],
+    mode="query",
+    adaptive=True,
+    confidence=0.99,
+    seed=7,
+)
 ```
+
+For sampled Qiskit results, `transmission_probability` keeps its existing
+meaning: transmitted shots divided by valid position shots. The shot result also
+exposes `raw_transmission_probability` and `valid_probability` as diagnostics
+when padding or workspace leakage is present.
 
 ## Built-in profiles
 
