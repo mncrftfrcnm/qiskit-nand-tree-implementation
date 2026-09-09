@@ -1,8 +1,5 @@
 # Dense and sparse backends
 
-This file records the backend choices without repeating the algorithm overview
-from the README.
-
 ## What the defaults mean
 
 - `evaluate_nand_tree(...)` uses the dense full-Hamiltonian reference.
