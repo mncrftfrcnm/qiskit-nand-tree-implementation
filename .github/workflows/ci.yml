@@ -170,6 +170,7 @@ jobs:
             --cov=non_qiskit \
             --cov-report=term-missing \
             --cov-report=xml \
+            --cov-fail-under=90 \
             -v -rs
 
       - name: Upload coverage report

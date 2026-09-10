@@ -44,10 +44,11 @@ python main.py qiskit-verify --leaf-count 2
 python main.py qiskit-verify --leaf-count 4
 ```
 
-The 8-leaf Qiskit verification covers all 256 inputs and is marked as a slow test. Run the full slow suite with:
+The matrix-free 8-leaf profile verification covers all 256 inputs in the regular test suite.
+The slower dense Qiskit/statevector comparison is kept separate. Run the full slow suite with:
 
 ```bash
-python -m pytest tests_folder/tests --run-slow -v -rs
+python -m pytest tests --run-slow -v -rs
 ```
 
 ## How calibration chooses a profile
@@ -87,7 +88,7 @@ The most important checks for the query implementation are:
 - `test_query_walk_matches_symmetric_split_for_all_two_leaf_inputs`
 - `test_query_walk_counts_calls_and_cleans_workspace`
 - the slow four-leaf query/split comparison
-- the slow exhaustive eight-leaf Qiskit profile verification
+- the regular exhaustive eight-leaf matrix-free profile verification
 
 These tests cover the input lookup, uncomputation, query count, workspace cleanup, and agreement with the reference evolution.
 

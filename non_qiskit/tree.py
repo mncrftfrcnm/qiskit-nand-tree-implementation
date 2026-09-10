@@ -14,11 +14,12 @@ class NandTree:
     leaves: tuple[int, ...]
 
     def __init__(self, leaves: Iterable[int]):
-        values = tuple(int(bit) for bit in leaves)
-        if not is_power_of_two(len(values)):
+        raw_values = tuple(leaves)
+        if not is_power_of_two(len(raw_values)):
             raise ValueError("the number of leaves must be a non-zero power of two")
-        if any(bit not in (0, 1) for bit in values):
+        if any(bit not in (0, 1) for bit in raw_values):
             raise ValueError("leaves must contain only 0 and 1")
+        values = tuple(int(bit) for bit in raw_values)
         object.__setattr__(self, "leaves", values)
 
     @property

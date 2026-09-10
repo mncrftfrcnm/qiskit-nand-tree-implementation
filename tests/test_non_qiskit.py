@@ -37,6 +37,8 @@ def test_tree_rejects_invalid_leaves():
         NandTree((0, 1, 0))
     with pytest.raises(ValueError):
         NandTree((0, 2))
+    with pytest.raises(ValueError):
+        NandTree((0.9, 1.9))
 
 
 @pytest.mark.parametrize("leaf_count", [2, 4, 8])
