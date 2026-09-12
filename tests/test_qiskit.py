@@ -311,6 +311,66 @@ def test_adaptive_sampling_reaches_stable_decision():
         assert 256 <= result.shot_result.shots <= 2048
 
 
+def test_adaptive_confidence_is_configurable_and_defaults_to_95_percent():
+    graph = build_walk_graph((1, 0), runway_half_length=2)
+    position_bits = encode_hamiltonian(graph.hamiltonian).qubits
+    total_bits = position_bits + 2
+    transmitted = graph.runway_index(1)
+    reflected = graph.runway_index(-1)
+    counts = {
+        format(transmitted, f"0{total_bits}b"): 60,
+        format(reflected, f"0{total_bits}b"): 40,
+    }
+
+    default = summarize_query_counts(graph, counts, steps=2, threshold=0.5)
+    explicit_95 = summarize_query_counts(
+        graph,
+        counts,
+        steps=2,
+        threshold=0.5,
+        confidence=0.95,
+    )
+    explicit_99 = summarize_query_counts(
+        graph,
+        counts,
+        steps=2,
+        threshold=0.5,
+        confidence=0.99,
+    )
+
+    assert default.confidence_low == explicit_95.confidence_low
+    assert default.confidence_high == explicit_95.confidence_high
+    width_95 = explicit_95.confidence_high - explicit_95.confidence_low
+    width_99 = explicit_99.confidence_high - explicit_99.confidence_low
+    assert width_99 > width_95
+
+
+def test_adaptive_confidence_is_validated_by_public_evaluator():
+    with pytest.raises(ValueError, match="confidence"):
+        evaluate_nand_tree(
+            (1, 0),
+            mode="query",
+            adaptive=True,
+            adaptive_confidence=1.0,
+            min_shots=256,
+            max_shots=256,
+            seed=7,
+        )
+
+    result = evaluate_nand_tree(
+        (1, 0),
+        mode="query",
+        adaptive=True,
+        adaptive_confidence=0.99,
+        min_shots=256,
+        max_shots=2048,
+        batch_shots=128,
+        seed=23,
+    )
+    assert result.correct
+    assert result.shot_result is not None
+
+
 def test_qiskit_profile_verifier_passes_two_leaf_inputs():
     result = verify_qiskit_profile(2)
     assert result.passed
