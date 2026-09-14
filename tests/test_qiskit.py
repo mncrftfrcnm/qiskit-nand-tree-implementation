@@ -276,6 +276,36 @@ def test_count_summary_excludes_dirty_workspace_from_decision():
     assert result.total_query_count == 400
 
 
+def test_wilson_z_changes_interval_width():
+    graph = build_walk_graph((1, 0), runway_half_length=2)
+    position_bits = encode_hamiltonian(graph.hamiltonian).qubits
+    total_bits = position_bits + 2
+    transmitted = graph.runway_index(1)
+    reflected = graph.runway_index(-1)
+    counts = {
+        format(transmitted, f"0{total_bits}b"): 60,
+        format(reflected, f"0{total_bits}b"): 40,
+    }
+
+    default = summarize_query_counts(graph, counts, steps=2, threshold=0.5)
+    wider = summarize_query_counts(graph, counts, steps=2, threshold=0.5, wilson_z=2.58)
+
+    default_width = default.confidence_high - default.confidence_low
+    wider_width = wider.confidence_high - wider.confidence_low
+    assert wider_width > default_width
+
+
+def test_wilson_z_rejects_nonpositive_values():
+    graph = build_walk_graph((1, 0), runway_half_length=2)
+    position_bits = encode_hamiltonian(graph.hamiltonian).qubits
+    total_bits = position_bits + 2
+    transmitted = graph.runway_index(1)
+    counts = {format(transmitted, f"0{total_bits}b"): 10}
+
+    with pytest.raises(ValueError, match="wilson_z must be positive"):
+        summarize_query_counts(graph, counts, steps=2, threshold=0.5, wilson_z=0.0)
+
+
 def test_confidence_bound_selects_shot_count():
     result = evaluate_nand_tree((1, 0), mode="query", confidence=0.99, seed=7)
     assert result.sampling_plan is not None
