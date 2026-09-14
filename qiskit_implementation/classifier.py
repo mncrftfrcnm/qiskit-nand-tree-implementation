@@ -72,15 +72,12 @@ def evaluate_nand_tree(
     evolution_backend: EvolutionBackend = "sparse",
     simulation_backend: SimulationBackend = "auto",
     driver_reps: int = 4,
-    wilson_interval: float = 1.95
+    wilson_z: float = 1.96,
 ) -> NandEvaluation:
     """Evaluate a NAND tree, using the exact dense reference by default.
 
-    Select '' mode="query" '' for the faster sparse/query implementation and for
-    every finite-shot sampling mode. But is less accurate, and not an exact 
-    alogrithm reference.
-
-    So, query may be faster, but is less accurate to the original algorithm 
+    Select ``mode="query"`` for the sparse/query implementation and finite-shot
+    sampling.
     """
 
     tree = NandTree(leaves)
@@ -165,6 +162,7 @@ def evaluate_nand_tree(
                 max_shots=max_shots,
                 batch_shots=batch_shots,
                 seed=seed,
+                wilson_z=wilson_z,
             )
             return _sampled_evaluation(tree, configuration, sampled, plan)
         if shots is not None:
@@ -198,6 +196,7 @@ def evaluate_nand_tree(
             max_shots=max_shots,
             batch_shots=batch_shots,
             seed=seed,
+            wilson_z=wilson_z,
         )
         return _sampled_evaluation(tree, configuration, sampled, plan)
 
