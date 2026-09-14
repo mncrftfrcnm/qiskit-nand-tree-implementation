@@ -293,8 +293,6 @@ The remaining bottlenecks are:
 - exhaustive calibration over `2**N` inputs.
 
 Sparse storage removes the dense matrix allocation, not all exponential work.
-A reversible neighbor oracle and sparse-Hamiltonian block encoding would be a
-more direct route toward the asymptotic model.
 
 ## Tests
 
