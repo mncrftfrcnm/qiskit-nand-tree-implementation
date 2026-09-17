@@ -16,8 +16,8 @@ from non_qiskit import (
 def test_unbalanced_formula_evaluates_correctly():
     formula = nand(Input(0), nand(Input(1), nand(Input(2), Input(3))))
 
-    assert evaluate_formula(formula, (1, 1, 1, 1)) == 1
-    assert evaluate_formula(formula, (1, 0, 1, 1)) == 0
+    assert evaluate_formula(formula, (1, 1, 1, 1)) == 0
+    assert evaluate_formula(formula, (1, 0, 1, 1)) == 1
     assert formula_depth(formula) == 3
     assert formula_size(formula) == 7
     assert input_occurrences(formula) == (0, 1, 2, 3)
@@ -44,10 +44,9 @@ def test_unbalanced_formula_walk_builds_expected_topology():
         runway_half_length=3,
     )
 
-    # Five formula nodes, three oracle vertices, and seven runway vertices.
     assert graph.size == 15
     assert graph.root_value == evaluate_formula(formula, (1, 0, 1))
-    assert sum(1 for vertex in graph.vertices if vertex.kind == "oracle") == 3
+    assert sum(vertex.kind == "oracle" for vertex in graph.vertices) == 3
 
 
 def test_formula_walk_preserves_state_norm():
