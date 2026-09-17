@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import asdict, dataclass
 
 from non_qiskit.profiles import profile_for
@@ -27,7 +25,7 @@ class CircuitResources:
 
 
 def _two_qubit_gate_count(circuit) -> int:
-    return sum(1 for instruction in circuit.data if len(instruction.qubits) == 2)
+    return sum(len(instruction.qubits) == 2 for instruction in circuit.data)
 
 
 def analyze_query_resources(
@@ -36,15 +34,12 @@ def analyze_query_resources(
     optimization_level: int = 1,
     driver_reps: int = 4,
 ) -> CircuitResources:
-    """Build and transpile one calibrated query circuit and report its resources."""
-
     profile = profile_for(leaf_count)
-    leaves = (0,) * leaf_count
     graph, circuit = build_query_walk_circuit(
-        leaves,
-        runway_half_length=profile.walk.runway_half_length,
-        packet_length=profile.walk.packet_length,
-        time=profile.walk.evolution_time,
+        (0,) * leaf_count,
+        runway_half_length=profile.runway_half_length,
+        packet_length=profile.packet_length,
+        time=profile.evolution_time,
         steps=profile.query_steps,
         driver_reps=driver_reps,
     )
