@@ -1,5 +1,5 @@
 from benchmarks.scaling import benchmark_size
-from qiskit_implementation import analyze_query_resources
+from qiskit_implementation.resources import analyze_query_resources
 
 
 def test_scaling_benchmark_records_core_resources():
