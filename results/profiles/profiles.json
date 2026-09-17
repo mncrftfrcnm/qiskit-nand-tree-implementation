@@ -1,0 +1,8 @@
+[
+  {"leaf_count": 2, "mode": "exact", "inputs": 4, "correct": 4, "accuracy": 1.0, "largest_zero_probability": 0.014901, "smallest_one_probability": 0.728411, "separation_margin": 0.713510, "threshold": 0.37, "passed": true},
+  {"leaf_count": 2, "mode": "query", "inputs": 4, "correct": 4, "accuracy": 1.0, "largest_zero_probability": 0.173945, "smallest_one_probability": 0.573547, "separation_margin": 0.399601, "threshold": 0.37, "passed": true},
+  {"leaf_count": 4, "mode": "exact", "inputs": 16, "correct": 16, "accuracy": 1.0, "largest_zero_probability": 0.014698, "smallest_one_probability": 0.309817, "separation_margin": 0.295119, "threshold": 0.16, "passed": true},
+  {"leaf_count": 4, "mode": "query", "inputs": 16, "correct": 16, "accuracy": 1.0, "largest_zero_probability": 0.014698, "smallest_one_probability": 0.287292, "separation_margin": 0.272594, "threshold": 0.16, "passed": true},
+  {"leaf_count": 8, "mode": "exact", "inputs": 256, "correct": 256, "accuracy": 1.0, "largest_zero_probability": 0.313524, "smallest_one_probability": 0.648962, "separation_margin": 0.335438, "threshold": 0.48, "passed": true},
+  {"leaf_count": 8, "mode": "query", "inputs": 256, "correct": 256, "accuracy": 1.0, "largest_zero_probability": 0.332700, "smallest_one_probability": 0.662253, "separation_margin": 0.329553, "threshold": 0.48, "passed": true}
+]
