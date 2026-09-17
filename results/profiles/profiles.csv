@@ -1,0 +1,7 @@
+leaf_count,mode,inputs,correct,accuracy,largest_zero_probability,smallest_one_probability,separation_margin,threshold,passed
+2,exact,4,4,1.0,0.014901,0.728411,0.713510,0.37,true
+2,query,4,4,1.0,0.173945,0.573547,0.399601,0.37,true
+4,exact,16,16,1.0,0.014698,0.309817,0.295119,0.16,true
+4,query,16,16,1.0,0.014698,0.287292,0.272594,0.16,true
+8,exact,256,256,1.0,0.313524,0.648962,0.335438,0.48,true
+8,query,256,256,1.0,0.332700,0.662253,0.329553,0.48,true
