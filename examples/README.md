@@ -19,4 +19,4 @@ for file in examples/*.py; do python "$file"; done
 | `06_plot_calibration.py` | Dense and query probabilities for all four-leaf inputs |
 
 Examples 04 and 05 include query-only operations because dense mode does not use
-the explicit bit oracle or finite-shot API.
+the explicit bit oracle or finite-shot code.
