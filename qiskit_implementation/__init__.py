@@ -1,4 +1,4 @@
-"""Public API for the Qiskit implementation of NAND trees"""
+"""Public APIs for the Qiskit implementation of NAND trees"""
 
 from .classifier import (
     NandEvaluation,
