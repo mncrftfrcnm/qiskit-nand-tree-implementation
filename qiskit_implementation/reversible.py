@@ -1,3 +1,5 @@
+"""the reversible NAND circuit implementation, etc."""
+
 from collections.abc import Iterable
 
 from non_qiskit.tree import NandTree
