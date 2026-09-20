@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation/actions/workflows/ci.yml/badge.svg)](https://github.com/mncrftfrcnm/qiskit-nand-tree-implementation/actions/workflows/ci.yml)
 
-This is a finite, small-scale implementation of the quantum NAND-tree walk. It
+This is a finite(as of now at least) implementation of the quantum NAND-tree walk. It
 contains calibrated experiments for 2, 4, and 8 leaves, an explicit input
 oracle, query counting, dense reference evolution, and a sparse query
 implementation.
